@@ -8,7 +8,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { WorkspaceRail } from "@/components/WorkspaceRail";
 import { useUploadModal } from "@/components/UploadModalProvider";
-import { API_BASE, deleteStaffDocument, getMyStaffDocuments, updateStaffDocument, uploadDocument } from "@/lib/api";
+import { API_BASE, deleteStaffDocument, getMyStaffDocuments, updateStaffDocument, uploadDocument, getDashboardStats } from "@/lib/api";
 import { StaffDocument } from "@/types";
 
 function formatDateTime(value: string) {
@@ -30,6 +30,7 @@ export default function StaffDashboardPage() {
   const { showUploadModal, setShowUploadModal } = useUploadModal();
   const [loading, setLoading] = useState(true);
   const [documents, setDocuments] = useState<StaffDocument[]>([]);
+  const [dashboardStats, setDashboardStats] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
@@ -76,9 +77,13 @@ export default function StaffDashboardPage() {
 
       setError(null);
       try {
-        const data = await getMyStaffDocuments();
+        const [docsData, statsData] = await Promise.all([
+          getMyStaffDocuments(),
+          getDashboardStats()
+        ]);
         if (!controller.signal.aborted) {
-          setDocuments(data);
+          setDocuments(docsData);
+          setDashboardStats(statsData);
         }
       } catch (fetchError) {
         if (!controller.signal.aborted) {
@@ -115,15 +120,15 @@ export default function StaffDashboardPage() {
   const recentDocuments = useMemo(() => documents.slice(0, 5), [documents]);
 
   const stats = useMemo(() => {
-    const totalDocs = documents.length;
-    const codeDocs = documents.filter((doc) => doc.programming_language && doc.programming_language.toLowerCase() !== "pdf").length;
-    const videoDocs = documents.filter((doc) => doc.title?.toLowerCase().endsWith(".mp4") || doc.title?.toLowerCase().endsWith(".webm")).length;
+    if (!dashboardStats) {
+      return { total: 0, code: 0, video: 0 };
+    }
     return {
-      total: totalDocs,
-      code: codeDocs,
-      video: videoDocs,
+      total: dashboardStats.staff_documents || 0,
+      code: dashboardStats.code_documents || 0,
+      video: dashboardStats.video_documents || 0,
     };
-  }, [documents]);
+  }, [dashboardStats]);
 
   const onUploadSubmit = async (event: ChangeEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -421,18 +426,16 @@ export default function StaffDashboardPage() {
                   <h3 className="text-lg font-semibold text-slate-900 mb-1">Departmental Activity</h3>
                   <p className="text-sm text-slate-600 mb-4">Computer Science Department</p>
                   <div className="space-y-2 relative z-10">
-                    <div className="flex items-center gap-2 text-sm animate-fade-in" style={{ animationDelay: "100ms" }}>
-                      <span className="text-blue-600">▶</span>
-                      <span className="text-slate-700">Dr. Lee uploaded new AI Lecture Video</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm animate-fade-in" style={{ animationDelay: "200ms" }}>
-                      <span className="text-blue-600">▶</span>
-                      <span className="text-slate-700">Sarah uploaded Robotics Code</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm animate-fade-in" style={{ animationDelay: "300ms" }}>
-                      <span className="text-blue-600">▶</span>
-                      <span className="text-slate-700">Prof. Okoye shared Research Paper</span>
-                    </div>
+                    {dashboardStats?.recent_activity && dashboardStats.recent_activity.length > 0 ? (
+                      dashboardStats.recent_activity.map((item: any, index: number) => (
+                        <div key={index} className="flex items-center gap-2 text-sm animate-fade-in" style={{ animationDelay: `${index * 100}ms` }}>
+                          <span className="text-blue-600">▶</span>
+                          <span className="text-slate-700">{item.title}</span>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-sm text-slate-500">No recent activity yet</div>
+                    )}
                   </div>
                   <div className="mt-4 flex justify-center">
                     <button className="bg-gradient-to-r from-blue-500 to-blue-700 text-white text-xs font-semibold py-2 px-4 rounded-lg shadow-md hover:-translate-y-0.5 transition-all">
@@ -453,15 +456,15 @@ export default function StaffDashboardPage() {
                   <p className="text-sm text-slate-600 mb-4">Summary interactions</p>
                   <div className="space-y-4">
                     <div className="animate-fade-in" style={{ animationDelay: "100ms" }}>
-                      <p className="text-5xl font-bold text-slate-900">12</p>
+                      <p className="text-5xl font-bold text-slate-900">{dashboardStats?.total_comments || 0}</p>
                       <p className="text-sm text-slate-600">New Comments</p>
                     </div>
                     <div className="animate-fade-in" style={{ animationDelay: "200ms" }}>
-                      <p className="text-5xl font-bold text-slate-900">45</p>
+                      <p className="text-5xl font-bold text-slate-900">{dashboardStats?.new_views || 0}</p>
                       <p className="text-sm text-slate-600">New Views</p>
                     </div>
                     <div className="animate-fade-in" style={{ animationDelay: "300ms" }}>
-                      <p className="text-5xl font-bold text-slate-900">8</p>
+                      <p className="text-5xl font-bold text-slate-900">{dashboardStats?.new_downloads || 0}</p>
                       <p className="text-sm text-slate-600">New Downloads</p>
                     </div>
                   </div>
@@ -581,6 +584,8 @@ export default function StaffDashboardPage() {
                             Reject
                           </button>
                         </div>
+                      </div>
+                    ))}
                       </div>
                     ))}
                   </div>

@@ -204,3 +204,18 @@ export async function deleteStaffDocument(documentId: string): Promise<void> {
     throw new Error("Failed to delete resource.");
   }
 }
+
+export async function getDashboardStats() {
+  const headers = {
+    "Content-Type": "application/json",
+    ...getAuthHeader(),
+  };
+  const response = await fetch(`${API_BASE}/documents/dashboard/stats`, {
+    headers,
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    throw new Error("Failed to fetch dashboard stats.");
+  }
+  return response.json();
+}

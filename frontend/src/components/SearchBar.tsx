@@ -20,7 +20,12 @@ export function SearchBar({
   const [query, setQuery] = useState(initialQuery);
 
   useEffect(() => {
-    setQuery(initialQuery);
+    // Sync local state with initialQuery prop only when it changes externally
+    if (query !== initialQuery) {
+      // Use queueMicrotask to schedule state update after render cycle completes,
+      // preventing synchronous setState in effect that causes cascading renders
+      queueMicrotask(() => setQuery(initialQuery));
+    }
   }, [initialQuery]);
 
   return (
