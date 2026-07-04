@@ -8,7 +8,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { WorkspaceRail } from "@/components/WorkspaceRail";
 import { useUploadModal } from "@/components/UploadModalProvider";
-import { getMyStaffDocuments, updateStaffDocument, uploadDocument, getDashboardStats } from "@/lib/api";
+import { getMyStaffDocuments, updateStaffDocument, uploadDocument, getDashboardStats, deleteStaffDocument } from "@/lib/api";
 import { StaffDocument } from "@/types";
 
 interface DashboardStats {
@@ -72,8 +72,12 @@ export default function StaffDashboardPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = await getMyStaffDocuments();
-      setDocuments(data);
+      const [docsData, statsData] = await Promise.all([
+        getMyStaffDocuments(),
+        getDashboardStats()
+      ]);
+      setDocuments(docsData);
+      setDashboardStats(statsData);
     } catch (fetchError) {
       const message = fetchError instanceof Error ? fetchError.message : "Failed to load resources.";
       setError(message);
@@ -547,18 +551,27 @@ export default function StaffDashboardPage() {
                               <td className="py-3 text-sm text-slate-900">{doc.title}</td>
                               <td className="py-3 text-sm text-slate-600">{formatDateTime(doc.created_at)}</td>
                               <td className="py-3">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setEditingDoc(doc);
-                                    setEditTitle(doc.title || "");
-                                    setEditCourseCode(doc.course_code || "");
-                                    setEditLevel(doc.level ? String(doc.level) : "");
-                                  }}
-                                  className="bg-white border border-blue-500 text-blue-600 text-xs font-semibold py-1 px-3 rounded-md hover:bg-blue-50 transition-all"
-                                >
-                                  Edit
-                                </button>
+                                <div className="flex gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditingDoc(doc);
+                                      setEditTitle(doc.title || "");
+                                      setEditCourseCode(doc.course_code || "");
+                                      setEditLevel(doc.level ? String(doc.level) : "");
+                                    }}
+                                    className="bg-white border border-blue-500 text-blue-600 text-xs font-semibold py-1 px-3 rounded-md hover:bg-blue-50 transition-all"
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => onDelete(doc.id)}
+                                    className="bg-white border border-red-500 text-red-600 text-xs font-semibold py-1 px-3 rounded-md hover:bg-red-50 transition-all"
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
                               </td>
                             </tr>
                           ))
@@ -572,15 +585,15 @@ export default function StaffDashboardPage() {
                   <h2 className="text-2xl font-bold text-slate-900 mb-4">Pending Approvals</h2>
                   <p className="text-sm text-slate-600 mb-4">Approve or reject student submissions and co-authored works.</p>
                   <div className="space-y-3">
-                    {dashboardStats?.pending_approvals?.length > 0 ? (
-                      dashboardStats.pending_approvals.map((item: { title?: string } | string, index: number) => (
+                    {(dashboardStats?.pending_approvals?.length ?? 0) > 0 ? (
+                      dashboardStats?.pending_approvals?.map((item: { title?: string } | string, index: number) => (
                         <div key={index} className="flex items-center justify-between py-3 border-b border-slate-100 last:border-b-0 animate-fade-in-up" style={{ animationDelay: `${index * 100}ms` }}>
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white font-semibold">
-                              {(item.title || item).charAt(0)}
+                              {(typeof item === 'string' ? item : item.title || '').charAt(0)}
                             </div>
                             <div>
-                              <p className="text-sm font-semibold text-slate-900">{item.title || item}</p>
+                              <p className="text-sm font-semibold text-slate-900">{typeof item === 'string' ? item : (item.title || 'Untitled')}</p>
                               <p className="text-xs text-slate-500">Submitted recently</p>
                             </div>
                           </div>
