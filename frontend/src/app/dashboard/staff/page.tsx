@@ -8,8 +8,25 @@ import { useAuth } from "@/components/AuthProvider";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { WorkspaceRail } from "@/components/WorkspaceRail";
 import { useUploadModal } from "@/components/UploadModalProvider";
-import { API_BASE, deleteStaffDocument, getMyStaffDocuments, updateStaffDocument, uploadDocument, getDashboardStats } from "@/lib/api";
+import { getMyStaffDocuments, updateStaffDocument, uploadDocument, getDashboardStats } from "@/lib/api";
 import { StaffDocument } from "@/types";
+
+interface DashboardStats {
+  total_documents: number;
+  total_comments: number;
+  staff_documents: number;
+  code_documents: number;
+  video_documents: number;
+  new_views: number;
+  new_downloads: number;
+  recent_activity: Array<{
+    title: string;
+    created_at: string;
+  }>;
+  pending_approvals: Array<{
+    title?: string;
+  } | string>;
+}
 
 function formatDateTime(value: string) {
   const date = new Date(value);
@@ -30,7 +47,7 @@ export default function StaffDashboardPage() {
   const { showUploadModal, setShowUploadModal } = useUploadModal();
   const [loading, setLoading] = useState(true);
   const [documents, setDocuments] = useState<StaffDocument[]>([]);
-  const [dashboardStats, setDashboardStats] = useState<any>(null);
+  const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
@@ -427,7 +444,7 @@ export default function StaffDashboardPage() {
                   <p className="text-sm text-slate-600 mb-4">Computer Science Department</p>
                   <div className="space-y-2 relative z-10">
                     {dashboardStats?.recent_activity && dashboardStats.recent_activity.length > 0 ? (
-                      dashboardStats.recent_activity.map((item: any, index: number) => (
+                      dashboardStats.recent_activity.map((item: { title: string; created_at: string }, index: number) => (
                         <div key={index} className="flex items-center gap-2 text-sm animate-fade-in" style={{ animationDelay: `${index * 100}ms` }}>
                           <span className="text-blue-600">▶</span>
                           <span className="text-slate-700">{item.title}</span>
@@ -556,7 +573,7 @@ export default function StaffDashboardPage() {
                   <p className="text-sm text-slate-600 mb-4">Approve or reject student submissions and co-authored works.</p>
                   <div className="space-y-3">
                     {dashboardStats?.pending_approvals?.length > 0 ? (
-                      dashboardStats.pending_approvals.map((item: any, index: number) => (
+                      dashboardStats.pending_approvals.map((item: { title?: string } | string, index: number) => (
                         <div key={index} className="flex items-center justify-between py-3 border-b border-slate-100 last:border-b-0 animate-fade-in-up" style={{ animationDelay: `${index * 100}ms` }}>
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white font-semibold">
