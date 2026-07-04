@@ -298,8 +298,8 @@ export default function StaffDashboardPage() {
         </nav>
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="flex gap-8">
-            <aside className="w-64 flex-shrink-0">
+          <div className="flex flex-col lg:flex-row gap-8">
+            <aside className="lg:w-64 flex-shrink-0 lg:block">
               <div className="glass-panel p-6 sticky top-28">
                 <div className="flex items-center gap-3 mb-8">
                   <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-blue-700 text-white font-semibold shadow-md">
@@ -374,7 +374,7 @@ export default function StaffDashboardPage() {
               </div>
             </aside>
 
-            <div className="flex-1 space-y-6">
+            <div className="flex-1 space-y-6 min-w-0">
               <header className="flex flex-wrap items-center justify-between gap-4">
                 <div>
                   <h1 className="text-3xl font-bold text-slate-900">Staff Resource Dashboard</h1>
@@ -391,8 +391,8 @@ export default function StaffDashboardPage() {
                 </div>
               </header>
 
-              <div className="grid gap-6 md:grid-cols-3">
-                <Link href="/results?q=" className="glass-card p-6 bg-gradient-to-br from-white to-blue-50 hover:-translate-y-1 transition-all block">
+              <div className="grid gap-6 md:grid-cols-3 min-w-0">
+                <Link href="/results?q=" className="glass-card p-6 bg-gradient-to-br from-white to-blue-50 hover:-translate-y-1 transition-all block min-w-0">
                   <h3 className="text-lg font-semibold text-slate-900 mb-1">Featured Collections & My Resources</h3>
                   <p className="text-sm text-slate-600 mb-4">Total uploaded files</p>
                   <p className="text-5xl font-bold text-slate-900 mb-4">{stats.total}</p>
@@ -441,7 +441,7 @@ export default function StaffDashboardPage() {
                   </div>
                 </Link>
 
-                <div className="glass-card p-6 bg-gradient-to-br from-white to-blue-100 relative overflow-hidden hover:-translate-y-1 transition-all cursor-pointer"
+                <div className="glass-card p-6 bg-gradient-to-br from-white to-blue-100 relative overflow-hidden hover:-translate-y-1 transition-all cursor-pointer min-w-0"
                   onClick={() => window.location.href = '/dashboard/staff'}
                 >
                   <h3 className="text-lg font-semibold text-slate-900 mb-1">Departmental Activity</h3>
@@ -470,7 +470,7 @@ export default function StaffDashboardPage() {
                   />
                 </div>
 
-                <div className="glass-card p-6 bg-gradient-to-br from-white to-slate-50 relative overflow-hidden hover:-translate-y-1 transition-all cursor-pointer"
+                <div className="glass-card p-6 bg-gradient-to-br from-white to-slate-50 relative overflow-hidden hover:-translate-y-1 transition-all cursor-pointer min-w-0"
                   onClick={() => window.location.href = '/dashboard/staff'}
                 >
                   <h3 className="text-lg font-semibold text-slate-900 mb-1">Student Engagement</h3>

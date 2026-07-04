@@ -89,7 +89,7 @@ function ResultsPageContent() {
               <WorkspaceRail />
             </div>
 
-            <div className="flex-1 space-y-8">
+            <div className="flex-1 space-y-8 min-w-0">
               <section className="glass-panel p-6 md:p-8 relative overflow-hidden">
                 <div className="absolute inset-0 opacity-30 bg-gradient-to-tr from-blue-500/10 to-indigo-500/10" />
                 <div className="relative z-10">

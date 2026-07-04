@@ -386,10 +386,12 @@ function DocumentDetailPageContent() {
 
       <div className="relative z-10 min-h-screen">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="flex gap-8">
-            <WorkspaceRail />
+          <div className="flex flex-col lg:flex-row gap-8">
+            <div className="lg:hidden">
+              <WorkspaceRail />
+            </div>
 
-            <div className="flex-1 space-y-6">
+            <div className="flex-1 space-y-6 min-w-0">
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <BackButton fallbackHref="/results?q=" label="Back to Results" />
                 <div className="flex flex-wrap gap-3">
@@ -516,6 +518,10 @@ function DocumentDetailPageContent() {
                   </div>
                 </div>
               </section>
+            </div>
+
+            <div className="hidden lg:block">
+              <WorkspaceRail />
             </div>
           </div>
         </div>
