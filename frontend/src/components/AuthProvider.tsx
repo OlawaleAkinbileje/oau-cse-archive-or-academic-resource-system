@@ -109,9 +109,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSessionState(nextSession);
       },
       clearSession: () => {
-        const cleared = { accessToken: null, userRole: null };
-        persistSession(cleared);
-        setSessionState(cleared);
+        persistSession(initialSession);
+        setSessionState(initialSession);
       },
       isHydrated,
     }),

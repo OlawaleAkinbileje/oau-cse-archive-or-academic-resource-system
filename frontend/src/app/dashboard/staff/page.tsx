@@ -555,39 +555,35 @@ export default function StaffDashboardPage() {
                   <h2 className="text-2xl font-bold text-slate-900 mb-4">Pending Approvals</h2>
                   <p className="text-sm text-slate-600 mb-4">Approve or reject student submissions and co-authored works.</p>
                   <div className="space-y-3">
-                    {[
-                      "Student Project Submission: Web Design Portfolio",
-                      "Lab Report: Operating Systems - Week 6",
-                      "Research Draft: AI Applications in Education"
-                    ].map((item, index) => (
-                      <div key={index} className="flex items-center justify-between py-3 border-b border-slate-100 last:border-b-0 animate-fade-in-up" style={{ animationDelay: `${index * 100}ms` }}>
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white font-semibold">
-                            {item.charAt(0)}
+                    {dashboardStats?.pending_approvals?.length > 0 ? (
+                      dashboardStats.pending_approvals.map((item: any, index: number) => (
+                        <div key={index} className="flex items-center justify-between py-3 border-b border-slate-100 last:border-b-0 animate-fade-in-up" style={{ animationDelay: `${index * 100}ms` }}>
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white font-semibold">
+                              {(item.title || item).charAt(0)}
+                            </div>
+                            <div>
+                              <p className="text-sm font-semibold text-slate-900">{item.title || item}</p>
+                              <p className="text-xs text-slate-500">Submitted recently</p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="text-sm font-semibold text-slate-900">{item}</p>
-                            <p className="text-xs text-slate-500">Submitted {index + 1} hours ago</p>
+                          <div className="flex gap-2">
+                            <button
+                              className="bg-gradient-to-r from-green-500 to-emerald-600 text-white text-xs font-semibold py-2 px-4 rounded-md hover:-translate-y-0.5 transition-all"
+                            >
+                              Approve
+                            </button>
+                            <button
+                              className="bg-gradient-to-r from-rose-500 to-red-600 text-white text-xs font-semibold py-2 px-4 rounded-md hover:-translate-y-0.5 transition-all"
+                            >
+                              Reject
+                            </button>
                           </div>
                         </div>
-                        <div className="flex gap-2">
-                          <button
-                            className="bg-gradient-to-r from-green-500 to-emerald-600 text-white text-xs font-semibold py-2 px-4 rounded-md hover:-translate-y-0.5 transition-all"
-                            onClick={() => alert(`Approved: ${item}`)}
-                          >
-                            Approve
-                          </button>
-                          <button
-                            className="bg-gradient-to-r from-rose-500 to-red-600 text-white text-xs font-semibold py-2 px-4 rounded-md hover:-translate-y-0.5 transition-all"
-                            onClick={() => alert(`Rejected: ${item}`)}
-                          >
-                            Reject
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                      </div>
-                    ))}
+                      ))
+                    ) : (
+                      <div className="text-center py-8 text-slate-500">No pending approvals</div>
+                    )}
                   </div>
                 </div>
               </div>
