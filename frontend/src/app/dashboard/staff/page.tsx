@@ -15,8 +15,10 @@ interface DashboardStats {
   total_documents: number;
   total_comments: number;
   staff_documents: number;
-  code_documents: number;
-  video_documents: number;
+  staff_code_documents: number;
+  staff_video_documents: number;
+  total_code_documents: number;
+  total_video_documents: number;
   new_views: number;
   new_downloads: number;
   recent_activity: Array<{
@@ -142,12 +144,22 @@ export default function StaffDashboardPage() {
 
   const stats = useMemo(() => {
     if (!dashboardStats) {
-      return { total: 0, code: 0, video: 0 };
+      return {
+        total: 0,
+        code: 0,
+        video: 0,
+        staffTotal: 0,
+        staffCode: 0,
+        staffVideo: 0
+      };
     }
     return {
-      total: dashboardStats.staff_documents || 0,
-      code: dashboardStats.code_documents || 0,
-      video: dashboardStats.video_documents || 0,
+      total: dashboardStats.total_documents || 0,
+      code: dashboardStats.total_code_documents || 0,
+      video: dashboardStats.total_video_documents || 0,
+      staffTotal: dashboardStats.staff_documents || 0,
+      staffCode: dashboardStats.staff_code_documents || 0,
+      staffVideo: dashboardStats.staff_video_documents || 0
     };
   }, [dashboardStats]);
 
@@ -393,9 +405,9 @@ export default function StaffDashboardPage() {
 
               <div className="grid gap-6 md:grid-cols-3 min-w-0">
                 <Link href="/results?q=" className="glass-card p-6 bg-gradient-to-br from-white to-blue-50 hover:-translate-y-1 transition-all block min-w-0">
-                  <h3 className="text-lg font-semibold text-slate-900 mb-1">Featured Collections & My Resources</h3>
-                  <p className="text-sm text-slate-600 mb-4">Total uploaded files</p>
-                  <p className="text-5xl font-bold text-slate-900 mb-4">{stats.total}</p>
+                  <h3 className="text-lg font-semibold text-slate-900 mb-1">Featured Collections (Curated Learning Resources)</h3>
+                  <p className="text-sm text-slate-600 mb-4">Resources available in archive</p>
+                  <p className="text-5xl font-bold text-slate-900 mb-4">{dashboardStats?.total_documents || 0}+</p>
                   <div className="flex items-center gap-6 mb-4">
                     <div className="flex items-center gap-2">
                       <span className="w-3 h-3 rounded-full bg-blue-500"></span>

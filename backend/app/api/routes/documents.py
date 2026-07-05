@@ -123,19 +123,28 @@ def get_dashboard_stats(
     # Get total comments
     total_comments = db.query(func.count(Comment.id)).scalar() or 0
     
+    # Get ALL documents to calculate total code/videos
+    all_docs = db.query(Document).all()
+    total_code_docs = 0
+    total_video_docs = 0
+    for doc in all_docs:
+        title_lower = doc.title.lower()
+        if title_lower.endswith(('.py', '.js', '.ts', '.java', '.c', '.cpp', '.h', '.cs', '.php', '.rb', '.go', '.rs', '.kt', '.swift')):
+            total_code_docs += 1
+        elif title_lower.endswith(('.mp4', '.webm', '.avi', '.mov', '.mkv', '.flv', '.wmv')):
+            total_video_docs += 1
+    
     # Get staff's documents
     staff_docs = db.query(Document).filter(Document.uploaded_by == user.id).all()
     staff_doc_count = len(staff_docs)
-    
-    # Calculate code and video docs
-    code_docs = 0
-    video_docs = 0
+    staff_code_docs = 0
+    staff_video_docs = 0
     for doc in staff_docs:
         title_lower = doc.title.lower()
         if title_lower.endswith(('.py', '.js', '.ts', '.java', '.c', '.cpp', '.h', '.cs', '.php', '.rb', '.go', '.rs', '.kt', '.swift')):
-            code_docs += 1
+            staff_code_docs += 1
         elif title_lower.endswith(('.mp4', '.webm', '.avi', '.mov', '.mkv', '.flv', '.wmv')):
-            video_docs += 1
+            staff_video_docs += 1
     
     # Get recent activity (last 5 uploaded docs)
     recent_docs = (
@@ -156,8 +165,10 @@ def get_dashboard_stats(
         "total_documents": total_docs,
         "total_comments": total_comments,
         "staff_documents": staff_doc_count,
-        "code_documents": code_docs,
-        "video_documents": video_docs,
+        "staff_code_documents": staff_code_docs,
+        "staff_video_documents": staff_video_docs,
+        "total_code_documents": total_code_docs,
+        "total_video_documents": total_video_docs,
         "new_views": 0,  # We don't track views yet
         "new_downloads": 0,  # We don't track downloads yet
         "recent_activity": activity,
