@@ -167,34 +167,51 @@ function DocumentViewer({ doc }: { doc: DocumentDetailType }) {
       </div>
 
       {isPDF && (
-        <iframe
-          src={`${doc.file_url}#toolbar=1`}
-          className="w-full h-[600px] rounded-xl border border-slate-200 shadow-sm"
-          title={doc.title}
-        />
+        <div className="w-full rounded-xl border border-slate-200 shadow-lg overflow-hidden">
+          <iframe
+            src={`${doc.file_url}#toolbar=1&navpanes=1&scrollbar=1`}
+            className="w-full h-[800px]"
+            title={doc.title}
+            allowFullScreen
+          />
+        </div>
       )}
 
       {isVideo && (
-        <video controls className="w-full max-h-[500px] rounded-xl border border-slate-200 shadow-sm">
-          <source src={doc.file_url} />
-          Your browser does not support the video tag.
-        </video>
+        <div className="w-full rounded-xl border border-slate-200 shadow-lg overflow-hidden bg-black">
+          <video
+            controls
+            className="w-full max-h-[600px]"
+            poster=""
+            playsInline
+            preload="metadata"
+          >
+            <source src={doc.file_url} />
+            Your browser does not support the video tag.
+          </video>
+        </div>
       )}
 
       {isImage && (
-        <img
-          src={doc.file_url}
-          alt={doc.title}
-          className="max-w-full rounded-xl border border-slate-200 shadow-sm"
-        />
+        <div className="w-full rounded-xl border border-slate-200 shadow-lg overflow-hidden bg-slate-100 flex justify-center items-center">
+          <img
+            src={doc.file_url}
+            alt={doc.title}
+            className="max-w-full max-h-[800px] object-contain"
+            loading="lazy"
+          />
+        </div>
       )}
 
       {isOffice && officeViewerUrl && (
-        <iframe
-          src={officeViewerUrl}
-          className="w-full h-[600px] rounded-xl border border-slate-200 shadow-sm"
-          title={doc.title}
-        />
+        <div className="w-full rounded-xl border border-slate-200 shadow-lg overflow-hidden">
+          <iframe
+            src={officeViewerUrl}
+            className="w-full h-[800px]"
+            title={doc.title}
+            allowFullScreen
+          />
+        </div>
       )}
 
       {(isText || (!isPDF && !isVideo && !isImage && !isOffice)) && (
