@@ -256,12 +256,13 @@ function DocumentViewer({ doc }: { doc: DocumentDetailType }) {
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
               components={{
-                code({ node, inline, className, children, ...props }: any) {
+                code({ node, inline, className, children, ...rest }: React.ComponentProps<'code'> & { node?: unknown; inline?: boolean }) {
                   const match = /language-(\w+)/.exec(className || "");
                   return !inline && match ? (
                     <div className="my-4 rounded-lg overflow-hidden">
                       <SyntaxHighlighter
                         style={vscDarkPlus}
+
                         language={match[1]}
                         PreTag="div"
                         customStyle={{ margin: 0 }}
@@ -272,7 +273,7 @@ function DocumentViewer({ doc }: { doc: DocumentDetailType }) {
                       </SyntaxHighlighter>
                     </div>
                   ) : (
-                    <code className={className} {...props}>
+                    <code className={className} {...rest}>
                       {children}
                     </code>
                   );
