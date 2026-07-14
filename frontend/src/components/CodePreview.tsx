@@ -1,3 +1,6 @@
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { vscDarkPlus, vs } from "react-syntax-highlighter/dist/esm/styles/prism";
+
 interface CodePreviewProps {
   language: string;
   code: string;
@@ -5,26 +8,48 @@ interface CodePreviewProps {
   onChange?: (newCode: string) => void;
 }
 
+const languageMap: Record<string, string> = {
+  python: "python",
+  py: "python",
+  javascript: "javascript",
+  js: "javascript",
+  typescript: "typescript",
+  ts: "typescript",
+  java: "java",
+  cpp: "cpp",
+  c: "c",
+  "c++": "cpp",
+  csharp: "csharp",
+  cs: "csharp",
+  php: "php",
+  ruby: "ruby",
+  rb: "ruby",
+  go: "go",
+  golang: "go",
+  rust: "rust",
+  rs: "rust",
+  kotlin: "kotlin",
+  kt: "kotlin",
+  swift: "swift",
+  html: "html",
+  xml: "xml",
+  css: "css",
+  scss: "scss",
+  json: "json",
+  yaml: "yaml",
+  yml: "yaml",
+  markdown: "markdown",
+  md: "markdown",
+  sql: "sql",
+  bash: "bash",
+  shell: "bash",
+  sh: "bash",
+  powershell: "powershell",
+  ps1: "powershell",
+};
+
 export function CodePreview({ language, code, editable = false, onChange }: CodePreviewProps) {
-  const tokens = language.toLowerCase().includes("python")
-    ? ["def", "class", "import", "return", "if", "for", "while"]
-    : ["function", "const", "let", "class", "return", "if", "for"];
-
-  const escaped = code
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;");
-
-  const highlighted = tokens.reduce((acc, token) => {
-    const regex = new RegExp(`\\b${token}\\b`, "g");
-    return acc.replace(regex, `<span class="text-blue-600 font-semibold">${token}</span>`);
-  }, escaped);
-
-  const handleInput = (e: React.FormEvent<HTMLTextAreaElement>) => {
-    if (onChange) {
-      onChange(e.currentTarget.value);
-    }
-  };
+  const normalizedLang = languageMap[language?.toLowerCase() || ""] || "text";
 
   return (
     <div className="glass-card-soft overflow-hidden">
@@ -41,14 +66,35 @@ export function CodePreview({ language, code, editable = false, onChange }: Code
       {editable ? (
         <textarea
           value={code}
-          onChange={handleInput}
-          className="w-full h-[500px] overflow-x-auto bg-slate-900 p-5 text-sm leading-7 text-slate-100 resize-vertical outline-none"
+          onChange={(e) => onChange?.(e.currentTarget.value)}
+          className="w-full h-[500px] overflow-x-auto bg-slate-900 p-5 text-sm leading-7 text-slate-100 resize-vertical outline-none font-mono"
           spellCheck={false}
         />
       ) : (
-        <pre className="overflow-x-auto bg-slate-900 p-5 text-sm leading-7 text-slate-100">
-          <code dangerouslySetInnerHTML={{ __html: highlighted }} />
-        </pre>
+        <div className="max-h-[800px] overflow-auto">
+          <SyntaxHighlighter
+            language={normalizedLang}
+            style={vscDarkPlus}
+            customStyle={{
+              margin: 0,
+              padding: "1.25rem",
+              fontSize: "0.875rem",
+              lineHeight: "1.75rem",
+              borderRadius: 0,
+            }}
+            showLineNumbers
+            wrapLines
+            lineNumberStyle={{
+              minWidth: "3.5rem",
+              paddingRight: "1rem",
+              textAlign: "right",
+              userSelect: "none",
+              opacity: 0.5,
+            }}
+          >
+            {code}
+          </SyntaxHighlighter>
+        </div>
       )}
     </div>
   );

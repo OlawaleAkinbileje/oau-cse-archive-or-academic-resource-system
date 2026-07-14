@@ -2,6 +2,13 @@
 
 import { ChangeEvent, Suspense, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
+import { Document, Page, pdfjs } from "react-pdf";
+import "react-pdf/dist/Page/AnnotationLayer.css";
+import "react-pdf/dist/Page/TextLayer.css";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 
 import { BackButton } from "@/components/BackButton";
 import { CodePreview } from "@/components/CodePreview";
@@ -9,6 +16,8 @@ import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { WorkspaceRail } from "@/components/WorkspaceRail";
 import { getComments, postComment, getDocumentDetail } from "@/lib/api";
 import { CommentItem, DocumentDetail as DocumentDetailType } from "@/types";
+
+pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 function formatCommentTime(value: string) {
   const date = new Date(value);
@@ -126,7 +135,8 @@ function DocumentViewer({ doc }: { doc: DocumentDetailType }) {
   const isVideo = ["mp4", "webm", "avi", "mov", "mkv", "flv", "wmv"].some((ext) => titleLower.endsWith(`.${ext}`));
   const isImage = ["jpg", "jpeg", "png", "gif", "webp", "svg", "bmp", "tiff"].some((ext) => titleLower.endsWith(`.${ext}`));
   const isOffice = ["docx", "doc", "xlsx", "xls", "pptx", "ppt", "odt", "ods", "odp"].some((ext) => titleLower.endsWith(`.${ext}`));
-  const isText = ["txt", "md", "json", "xml", "html", "css", "js", "ts", "py", "java", "c", "cpp", "h", "cs", "php", "rb", "go", "rs", "kt", "swift"].some((ext) => titleLower.endsWith(`.${ext}`));
+  const isMarkdown = titleLower.endsWith(".md") || titleLower.endsWith(".markdown");
+  const isText = ["txt", "json", "xml", "html", "css", "js", "ts", "py", "java", "c", "cpp", "h", "cs", "php", "rb", "go", "rs", "kt", "swift"].some((ext) => titleLower.endsWith(`.${ext}`));
 
   const codeBlock = doc.content_text || doc.metadata.key_snippet || "";
 
@@ -144,7 +154,7 @@ function DocumentViewer({ doc }: { doc: DocumentDetailType }) {
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-slate-900">File Viewer</h3>
         <div className="flex items-center gap-3">
-          {(isText || (!isPDF && !isVideo && !isImage && !isOffice)) && (
+          {(isText || isMarkdown || (!isPDF && !isVideo && !isImage && !isOffice)) && (
             <button
               type="button"
               onClick={() => setIsEditing(!isEditing)}
@@ -179,16 +189,35 @@ function DocumentViewer({ doc }: { doc: DocumentDetailType }) {
 
       {isVideo && (
         <div className="w-full rounded-xl border border-slate-200 shadow-lg overflow-hidden bg-black">
-          <video
-            controls
-            className="w-full max-h-[600px]"
-            poster=""
-            playsInline
-            preload="metadata"
-          >
-            <source src={doc.file_url} />
-            Your browser does not support the video tag.
-          </video>
+          <div className="aspect-video max-h-[600px]">
+            <video
+              className="w-full h-full"
+              controls
+              playsInline
+              preload="metadata"
+              poster=""
+            >
+              <source src={doc.file_url} type="video/mp4" />
+              <source src={doc.file_url} type="video/webm" />
+              <source src={doc.file_url} type="video/ogg" />
+              <div className="flex items-center justify-center h-full text-white p-8 text-center">
+                <div>
+                  <p className="text-lg font-semibold mb-2">Video playback not supported</p>
+                  <p className="text-sm text-gray-300">Your browser doesn&apos;t support video playback.</p>
+                  <a
+                    href={doc.file_url}
+                    download
+                    className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-white text-sm font-medium transition-colors"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    Download Video
+                  </a>
+                </div>
+              </div>
+            </video>
+          </div>
         </div>
       )}
 
@@ -214,7 +243,61 @@ function DocumentViewer({ doc }: { doc: DocumentDetailType }) {
         </div>
       )}
 
-      {(isText || (!isPDF && !isVideo && !isImage && !isOffice)) && (
+      {isMarkdown && (
+        isEditing ? (
+          <CodePreview
+            language="markdown"
+            code={editedCode}
+            editable={true}
+            onChange={setEditedCode}
+          />
+        ) : (
+          <div className="glass-card-soft p-6 md:p-8 prose prose-slate max-w-none">
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={{
+                code({ node, inline, className, children, ...props }: any) {
+                  const match = /language-(\w+)/.exec(className || "");
+                  return !inline && match ? (
+                    <div className="my-4 rounded-lg overflow-hidden">
+                      <SyntaxHighlighter
+                        style={vscDarkPlus}
+                        language={match[1]}
+                        PreTag="div"
+                        customStyle={{ margin: 0 }}
+                        showLineNumbers
+                        wrapLines
+                      >
+                        {String(children).replace(/\n$/, "")}
+                      </SyntaxHighlighter>
+                    </div>
+                  ) : (
+                    <code className={className} {...props}>
+                      {children}
+                    </code>
+                  );
+                },
+                h1: ({ ...props }) => <h1 className="text-3xl font-bold text-slate-900 mb-4 pb-2 border-b border-slate-200" {...props} />,
+                h2: ({ ...props }) => <h2 className="text-2xl font-semibold text-slate-900 mt-6 mb-3" {...props} />,
+                h3: ({ ...props }) => <h3 className="text-xl font-semibold text-slate-900 mt-5 mb-2" {...props} />,
+                p: ({ ...props }) => <p className="text-slate-700 leading-7 mb-4" {...props} />,
+                ul: ({ ...props }) => <ul className="list-disc list-outside ml-6 space-y-2 text-slate-700 mb-4" {...props} />,
+                ol: ({ ...props }) => <ol className="list-decimal list-outside ml-6 space-y-2 text-slate-700 mb-4" {...props} />,
+                blockquote: ({ ...props }) => <blockquote className="border-l-4 border-blue-500 pl-4 italic text-slate-600 my-4 bg-blue-50 py-2 pr-4 rounded-r-lg" {...props} />,
+                a: ({ ...props }) => <a className="text-blue-600 hover:text-blue-700 underline" {...props} />,
+                table: ({ ...props }) => <div className="overflow-x-auto mb-4"><table className="min-w-full divide-y divide-slate-200 border border-slate-200 rounded-lg overflow-hidden" {...props} /></div>,
+                thead: ({ ...props }) => <thead className="bg-slate-50" {...props} />,
+                th: ({ ...props }) => <th className="px-4 py-3 text-left text-sm font-semibold text-slate-900 border-b border-slate-200" {...props} />,
+                td: ({ ...props }) => <td className="px-4 py-3 text-sm text-slate-700 border-b border-slate-100" {...props} />,
+              }}
+            >
+              {isEditing ? editedCode : codeBlock}
+            </ReactMarkdown>
+          </div>
+        )
+      )}
+
+      {(isText || (!isPDF && !isVideo && !isImage && !isOffice && !isMarkdown)) && (
         <CodePreview
           language={doc.metadata.programming_language || "text"}
           code={isEditing ? editedCode : codeBlock}
@@ -223,7 +306,7 @@ function DocumentViewer({ doc }: { doc: DocumentDetailType }) {
         />
       )}
 
-      {!isPDF && !isVideo && !isImage && !isOffice && !isText && !doc.content_text && !doc.metadata.key_snippet && (
+      {!isPDF && !isVideo && !isImage && !isOffice && !isMarkdown && !isText && !doc.content_text && !doc.metadata.key_snippet && (
         <div className="glass-card-soft p-8 text-center">
           <p className="text-slate-600 text-lg">No preview available for this file type</p>
           <p className="text-slate-500 text-sm mt-2">Please download the file to view it</p>
