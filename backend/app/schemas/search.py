@@ -20,4 +20,5 @@ class SearchResultItem(BaseModel):
     title: str
     relevance_score: float
     snippet: str | None = None
+    file_url: str | None = None
     metadata: SearchMetadata

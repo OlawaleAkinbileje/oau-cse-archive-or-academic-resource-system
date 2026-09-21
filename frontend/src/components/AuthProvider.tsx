@@ -3,8 +3,9 @@
 import { createContext, ReactNode, useContext, useEffect, useMemo, useState } from "react";
 
 import { getStoredSession, persistSession } from "@/lib/auth-session";
-import { AuthSession, UserProfile } from "@/types/auth";
+import { AuthSession, UserProfile, UserRole } from "@/types/auth";
 import { supabase } from "@/lib/supabase-browser";
+import { getAuthProfile } from "@/lib/api";
 
 interface AuthContextValue {
   session: AuthSession;
@@ -56,6 +57,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Fetch user profile if we have a user
         const profile = await fetchUserProfile(supabaseSession.user.id);
         finalSession.userProfile = profile;
+
+        // Enrich with backend auth profile
+        const authProfile = await getAuthProfile(finalSession.accessToken);
+        if (authProfile?.user?.role) {
+          const user = authProfile.user;
+          let userRole: UserRole;
+          if (user.role === 'staff' && user.is_staff_verified) {
+            userRole = 'staff';
+          } else if (user.role === 'staff' && !user.is_staff_verified) {
+            userRole = 'pending';
+          } else {
+            userRole = 'student';
+          }
+          finalSession.userRole = userRole;
+          finalSession.userProfile = {
+            id: user.id,
+            email: user.email,
+            fullName: user.full_name,
+          };
+        }
       }
 
       // Defer state updates to microtask to avoid synchronous setState in effect
@@ -78,12 +99,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // Fetch user profile
           const profile = await fetchUserProfile(supabaseSession.user.id);
 
+          // Enrich with backend auth profile
+          let userRole: UserRole | null = null;
+          let enrichedProfile = profile;
+          try {
+            const authProfile = await getAuthProfile(supabaseSession.access_token);
+            if (authProfile?.user?.role) {
+              const user = authProfile.user;
+              if (user.role === 'staff' && user.is_staff_verified) {
+                userRole = 'staff';
+              } else if (user.role === 'staff' && !user.is_staff_verified) {
+                userRole = 'pending';
+              } else {
+                userRole = 'student';
+              }
+              enrichedProfile = {
+                id: user.id,
+                email: user.email,
+                fullName: user.full_name,
+              };
+            }
+          } catch {
+            // ignore
+          }
+
           // Update session with new token and profile
           setSessionState((prev) => {
             const newSession = {
               ...prev,
               accessToken: supabaseSession.access_token,
-              userProfile: profile
+              userProfile: enrichedProfile,
+              userRole: userRole ?? prev.userRole,
             };
             persistSession(newSession);
             return newSession;

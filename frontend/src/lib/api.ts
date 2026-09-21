@@ -6,7 +6,26 @@ import {
   DocumentDetail,
 } from "@/types";
 import { AUTH_TOKEN_KEY } from "@/lib/auth-session";
-import { searchCache } from "./search-cache";
+
+const SEARCH_CACHE_MAX = 64;
+const searchCache = new Map<string, unknown>();
+
+function cachedGet(key: string): unknown | null {
+  if (!searchCache.has(key)) return null;
+  const value = searchCache.get(key);
+  searchCache.delete(key);
+  searchCache.set(key, value);
+  return value;
+}
+
+function cachedSet(key: string, value: unknown): void {
+  if (searchCache.has(key)) searchCache.delete(key);
+  searchCache.set(key, value);
+  if (searchCache.size > SEARCH_CACHE_MAX) {
+    const firstKey = searchCache.keys().next().value;
+    if (firstKey !== undefined) searchCache.delete(firstKey);
+  }
+}
 
 export const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
@@ -38,7 +57,7 @@ export async function searchDocuments(
   filters: SearchFilters,
 ): Promise<SearchResult[]> {
   const cacheKey = generateCacheKey(query, filters);
-  const cached = typeof window !== "undefined" ? searchCache.get(cacheKey) : null;
+  const cached = typeof window !== "undefined" ? cachedGet(cacheKey) : null;
 
   if (cached) {
     console.log("Search result loaded from cache:", cacheKey);
@@ -62,7 +81,7 @@ export async function searchDocuments(
   const data = await response.json();
 
   if (typeof window !== "undefined") {
-    searchCache.set(cacheKey, data);
+    cachedSet(cacheKey, data);
     console.log("Search result cached:", cacheKey);
   }
 
@@ -175,8 +194,8 @@ export async function getMyStaffDocuments(): Promise<StaffDocument[]> {
 }
 
 export async function updateStaffDocument(
-  documentId: string,
-  payload: { title?: string; course_code?: string; level?: number },
+  documentId: number | string,
+  payload: { title?: string; course_code?: string; level?: string | number | undefined },
 ): Promise<StaffDocument> {
   const response = await fetch(`${API_BASE}/documents/${documentId}`, {
     method: "PATCH",
@@ -192,7 +211,7 @@ export async function updateStaffDocument(
   return response.json();
 }
 
-export async function deleteStaffDocument(documentId: string): Promise<void> {
+export async function deleteStaffDocument(documentId: number | string): Promise<void> {
   const response = await fetch(`${API_BASE}/documents/${documentId}`, {
     method: "DELETE",
     headers: {
@@ -218,4 +237,18 @@ export async function getDashboardStats() {
     throw new Error("Failed to fetch dashboard stats.");
   }
   return response.json();
+}
+
+export async function getAuthProfile(accessToken: string | null): Promise<{ user: { role: string; is_staff_verified: boolean; status: string; full_name: string | null; email: string; id: string }; is_valid: boolean } | null> {
+  if (!accessToken) return null;
+  try {
+    const response = await fetch(`${API_BASE}/auth/me`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: "no-store",
+    });
+    if (!response.ok) return null;
+    return await response.json();
+  } catch {
+    return null;
+  }
 }

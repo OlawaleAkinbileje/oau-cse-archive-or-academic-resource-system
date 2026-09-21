@@ -19,7 +19,7 @@ def search_documents(
     language: str | None = Query(default=None),
     course_code: str | None = Query(default=None),
     course: str | None = Query(default=None),
-    level: int | None = Query(default=None),
+    level: str | None = Query(default=None),
     db: Session = Depends(get_db),
 ):
     start_time = perf_counter()

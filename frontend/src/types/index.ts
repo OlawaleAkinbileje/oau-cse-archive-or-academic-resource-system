@@ -17,7 +17,7 @@ export interface SearchResult {
     programming_language: string | null;
     key_snippet: string | null;
   };
-  file_url?: string;
+  file_url: string;
 }
 
 export interface CommentItem {
@@ -37,7 +37,7 @@ export interface StaffDocument {
   created_at: string;
   title: string | null;
   course_code: string | null;
-  level: number | null;
+  level: string | null;
   programming_language: string | null;
 }
 

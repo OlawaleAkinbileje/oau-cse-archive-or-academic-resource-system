@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { AppNavbar } from "@/components/AppNavbar";
 import { AuthProvider } from "@/components/AuthProvider";
-import { UploadModalProvider } from "@/components/UploadModalProvider";
+import { NavbarProvider } from "@/components/NavbarProvider";
 import "./globals.css";
 
 const inter = Inter({
@@ -29,10 +29,10 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col bg-[var(--background)] text-[var(--foreground)]">
         <AuthProvider>
-          <UploadModalProvider>
+          <NavbarProvider>
             <AppNavbar />
             {children}
-          </UploadModalProvider>
+          </NavbarProvider>
         </AuthProvider>
       </body>
     </html>

@@ -2,7 +2,6 @@
 
 import { useState, ChangeEvent } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 
 import { useAuth } from "@/components/AuthProvider";
@@ -81,176 +80,244 @@ export default function AuthLoginPage() {
     router.push(userRole === "staff" ? "/dashboard/staff" : "/results?q=");
   };
 
+  const socialLogins = [
+    {
+      icon: (
+        <svg className="w-5 h-5" viewBox="0 0 24 24">
+          <path fill="#4285F4" d="M22.56 12.255c0-.709-.064-1.39-.182-2.041H12v3.869h5.923a5.1 5.1 0 0 1-2.096 3.344v2.776h3.345c1.96-1.805 3.088-4.465 3.088-7.948z" />
+          <path fill="#34A853" d="M12 23c2.97 0 5.457-.99 7.282-2.68l-3.345-2.776c-.99.665-2.246 1.062-3.937 1.062-3.021 0-5.585-2.04-6.496-4.778H2.117v2.87C3.868 20.067 7.66 23 12 23z" />
+          <path fill="#FBBC05" d="M5.504 13.828a6.976 6.976 0 0 1 0-4.396V6.562H2.117a11.996 11.996 0 0 0 0 10.876l3.387-2.87z" />
+          <path fill="#EA4335" d="M12 4.578c1.696 0 3.218.583 4.415 1.725l3.297-3.297C17.44 1.187 14.97 0 12 0 7.66 0 3.868 2.933 2.117 6.562l3.387 2.87c.91-2.738 3.475-4.778 6.496-4.778z" />
+        </svg>
+      ),
+      label: "Google"
+    },
+    {
+      icon: (
+        <svg className="w-5 h-5" viewBox="0 0 24 24">
+          <rect x="2" y="2" width="20" height="20" rx="2" fill="#F25022" />
+          <rect x="2" y="2" width="9" height="9" rx="1" fill="#00A4EF" />
+          <rect x="13" y="2" width="9" height="9" rx="1" fill="#7FBA00" />
+          <rect x="2" y="13" width="9" height="9" rx="1" fill="#FFB900" />
+          <rect x="13" y="13" width="9" height="9" rx="1" fill="#00A1F1" />
+        </svg>
+      ),
+      label: "Microsoft"
+    },
+    {
+      icon: (
+        <svg className="w-5 h-5 text-[#0A66C2]" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M4.98 3.5c0 1.381-1.11 2.5-2.48 2.5-1.38 0-2.48-1.119-2.48-2.5 0-1.38 1.1-2.5 2.48-2.5 1.37 0 2.48 1.12 2.48 2.5zm0 0M6.004 6h3.996v14.25h-3.996zm4.496 0h3.836l.018 2.208c.577-.988 1.77-2.208 3.91-2.208 2.804 0 4.736 1.716 4.736 5.83v6.42h-3.996v-5.532c0-1.392-.497-2.346-1.664-2.346-1.343 0-2.087 1.02-2.087 2.394v5.484h-3.997z" />
+        </svg>
+      ),
+      label: "LinkedIn"
+    }
+  ];
+
+  const features = [
+    "Search 12,458+ resources",
+    "Browse by course & level",
+    "Download & cite materials instantly"
+  ];
+
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 relative overflow-hidden">
-      {/* Background decorations */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <img
-          src="/images/edu-books-gears.svg"
-          alt=""
-          className="absolute -right-10 top-10 w-96 opacity-40 animate-float"
-        />
-        <img
-          src="/images/educational-shapes-abstract.svg"
-          alt=""
-          className="absolute -left-20 bottom-20 w-72 opacity-30 animate-float"
-          style={{ animationDelay: "1s" }}
-        />
-      </div>
+    <main className="min-h-screen w-full flex">
+      <div className="w-full grid lg:grid-cols-2 grid-cols-1">
+        {/* LEFT SIDE - Dark Navy Panel (desktop-only) */}
+        <div className="hidden lg:flex relative flex-col justify-between min-h-screen overflow-hidden" style={{ backgroundColor: "#0a1628" }}>
+          <div
+            className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-15"
+            style={{
+              backgroundImage: `url('https://coresg-normal.trae.ai/api/ide/v1/text_to_image?prompt=obafemi%20awolowo%20university%20campus%20building%20aerial%20view%20green%20landscape%20academic%20architecture&image_size=portrait_4_3')`
+            }}
+          />
+          <div className="absolute inset-0 hero-overlay" />
 
-      <div className="relative z-10 flex min-h-screen items-center justify-center p-4">
-        <div className="w-full max-w-5xl grid md:grid-cols-2 gap-8 items-center">
-          {/* Left side (login form) */}
-          <div className="bg-white rounded-3xl shadow-2xl p-6 md:p-8 animate-fade-in-up">
-            <div className="flex items-center justify-between mb-6 animate-fade-in" style={{ animationDelay: "100ms" }}>
-              <div className="flex items-center gap-3">
-                <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-blue-700 text-white shadow-[0_4px_20px_rgba(30,64,175,0.3)] animate-float">
-                  <svg aria-hidden="true" viewBox="0 0 24 24" className="h-6 w-6 fill-current">
-                    <path d="M10.5 3.75c-1.67 0-3 1.33-3 3 0 .9.39 1.7 1.01 2.25-.84.49-1.41 1.4-1.41 2.44v1.31H5.75a2.75 2.75 0 1 0 0 5.5h2.5a2.75 2.75 0 0 0 2.75-2.75v-4c0-.69.56-1.25 1.25-1.25h.5a2.75 2.75 0 1 0 0-5.5h-2.25Z" />
-                  </svg>
-                </span>
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.28em] text-blue-600">Department Archive</p>
-                  <p className="text-lg font-semibold text-slate-900">OAU CSE</p>
-                </div>
+          <div className="relative z-10 p-12 flex flex-col h-full">
+            <div className="flex items-center gap-4 mb-16">
+              <div className="shield-logo w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg shadow-[#d4a017]/20">
+                <svg className="w-8 h-8 text-white" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2L4 6v6c0 5.55 3.84 10.74 8 12 4.16-1.26 8-6.45 8-12V6l-8-4zm0 10.99h6c-.53 4.12-3.28 7.79-6 8.94V12.99H6V7.07l6-3v8.92z" />
+                </svg>
+              </div>
+              <div>
+                <h2 className="text-white text-2xl font-extrabold tracking-tight">OAU CSE</h2>
+                <p className="text-gray-400 text-sm">Academic Search Engine</p>
               </div>
             </div>
 
-            <h1 className="text-2xl font-bold text-slate-900 mb-2 animate-fade-in-up" style={{ animationDelay: "200ms" }}>Welcome Back to OAU CSE</h1>
-            <p className="text-slate-600 mb-6 animate-fade-in-up" style={{ animationDelay: "300ms" }}>Please sign in to access your dashboard.</p>
+            <div className="flex-1 flex flex-col justify-center max-w-md">
+              <h1 className="text-white text-4xl font-bold leading-tight mb-6">
+                Welcome to OAU CSE Academic Search Engine
+              </h1>
+              <p className="text-gray-300 text-base leading-relaxed mb-10">
+                Access and search through thousands of lecture materials, research papers, and academic resources curated for the Department of Computer Science & Engineering community.
+              </p>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Email Field */}
-              <div className="relative animate-fade-in-up" style={{ animationDelay: "400ms" }}>
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">
-                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
-                  </svg>
-                </div>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  className="w-full pl-12 pr-4 py-3 rounded-xl border border-slate-300 text-slate-900 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                  placeholder="Email Address"
-                  autoComplete="email"
-                />
-              </div>
-
-              {/* Password Field */}
-              <div className="relative animate-fade-in-up" style={{ animationDelay: "500ms" }}>
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">
-                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                  </svg>
-                </div>
-                <input
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  className="w-full pl-12 pr-12 py-3 rounded-xl border border-slate-300 text-slate-900 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                  placeholder="Password"
-                  autoComplete="current-password"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-blue-600 hover:text-blue-700 font-medium text-sm"
-                >
-                  Forgot Password?
-                </button>
-              </div>
-
-              {/* Submit Button */}
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-gradient-to-r from-blue-600 to-blue-800 text-white font-semibold py-3 rounded-xl shadow-lg shadow-blue-500/30 hover:shadow-blue-500/40 hover:-translate-y-0.5 transition-all disabled:opacity-70 disabled:cursor-not-allowed animate-fade-in-up"
-                style={{ animationDelay: "600ms" }}
-              >
-                {loading ? "Signing in..." : "Sign In"}
-              </button>
-            </form>
-
-            {message && (
-              <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700 animate-fade-in" style={{ animationDelay: "700ms" }}>
-                {message}
-              </div>
-            )}
-
-            {/* Divider */}
-            <div className="mt-6 flex items-center gap-4 animate-fade-in" style={{ animationDelay: "800ms" }}>
-              <div className="flex-1 h-px bg-slate-300"></div>
-              <span className="text-sm text-slate-500 font-medium">Or sign in with</span>
-              <div className="flex-1 h-px bg-slate-300"></div>
+              <ul className="space-y-5">
+                {features.map((feature, i) => (
+                  <li key={i} className="flex items-center gap-4">
+                    <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: "rgba(212, 160, 23, 0.15)" }}>
+                      <svg className="w-4 h-4" style={{ color: "#d4a017" }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    </div>
+                    <span className="text-gray-200 font-medium">{feature}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
 
-            {/* Social Logins */}
-            <div className="mt-4 grid grid-cols-3 gap-3">
-              {[
-                {
-                  icon: (
-                    <svg className="w-5 h-5" viewBox="0 0 24 24">
-                      <path fill="#4285F4" d="M22.56 12.255c0-.709-.064-1.39-.182-2.041H12v3.869h5.923a5.1 5.1 0 0 1-2.096 3.344v2.776h3.345c1.96-1.805 3.088-4.465 3.088-7.948z" />
-                      <path fill="#34A853" d="M12 23c2.97 0 5.457-.99 7.282-2.68l-3.345-2.776c-.99.665-2.246 1.062-3.937 1.062-3.021 0-5.585-2.04-6.496-4.778H2.117v2.87C3.868 20.067 7.66 23 12 23z" />
-                      <path fill="#FBBC05" d="M5.504 13.828a6.976 6.976 0 0 1 0-4.396V6.562H2.117a11.996 11.996 0 0 0 0 10.876l3.387-2.87z" />
-                      <path fill="#EA4335" d="M12 4.578c1.696 0 3.218.583 4.415 1.725l3.297-3.297C17.44 1.187 14.97 0 12 0 7.66 0 3.868 2.933 2.117 6.562l3.387 2.87c.91-2.738 3.475-4.778 6.496-4.778z" />
-                    </svg>
-                  ),
-                  label: "Google"
-                },
-                {
-                  icon: (
-                    <svg className="w-5 h-5" viewBox="0 0 24 24">
-                      <rect x="2" y="2" width="20" height="20" rx="2" fill="#F25022" />
-                      <rect x="2" y="2" width="9" height="9" rx="1" fill="#00A4EF" />
-                      <rect x="13" y="2" width="9" height="9" rx="1" fill="#7FBA00" />
-                      <rect x="2" y="13" width="9" height="9" rx="1" fill="#FFB900" />
-                      <rect x="13" y="13" width="9" height="9" rx="1" fill="#00A1F1" />
-                    </svg>
-                  ),
-                  label: "Microsoft"
-                },
-                {
-                  icon: (
-                    <svg className="w-5 h-5 text-blue-700" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M4.98 3.5c0 1.381-1.11 2.5-2.48 2.5-1.38 0-2.48-1.119-2.48-2.5 0-1.38 1.1-2.5 2.48-2.5 1.37 0 2.48 1.12 2.48 2.5zm0 0M6.004 6h3.996v14.25h-3.996zm4.496 0h3.836l.018 2.208c.577-.988 1.77-2.208 3.91-2.208 2.804 0 4.736 1.716 4.736 5.83v6.42h-3.996v-5.532c0-1.392-.497-2.346-1.664-2.346-1.343 0-2.087 1.02-2.087 2.394v5.484h-3.997z" />
-                    </svg>
-                  ),
-                  label: "LinkedIn"
-                }
-              ].map((social, i) => (
-                <button
-                  key={social.label}
-                  type="button"
-                  className="flex items-center justify-center gap-2 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 transition-all shadow-sm animate-fade-in-up hover:-translate-y-1"
-                  style={{ animationDelay: `${900 + i * 100}ms` }}
-                >
-                  {social.icon}
-                  <span className="font-semibold text-slate-700 text-sm">{social.label}</span>
-                </button>
-              ))}
+            <div className="pt-8">
+              <div className="flex items-center gap-2 opacity-60">
+                <div className="h-px flex-1 bg-gray-500" />
+                <span className="text-gray-400 text-xs">Obafemi Awolowo University</span>
+                <div className="h-px flex-1 bg-gray-500" />
+              </div>
             </div>
-
-            <p className="mt-4 text-center text-xs text-slate-500 animate-fade-in" style={{ animationDelay: "1200ms" }}>For official institution emails</p>
-
-            <p className="mt-4 text-center text-sm text-slate-600 animate-fade-in" style={{ animationDelay: "1300ms" }}>
-              Don&apos;t have an account?{" "}
-              <Link href="/auth/register" className="font-semibold text-blue-700 hover:text-blue-800">
-                Sign Up
-              </Link>
-            </p>
           </div>
+        </div>
 
-          {/* Right side (illustration) - hidden on mobile */}
-          <div className="hidden md:block relative animate-fade-in-up" style={{ animationDelay: "400ms" }}>
-            <img
-              src="https://coresg-normal.trae.ai/api/v1/text-to-image?prompt=education%20illustration%20books%20study%20students%20blue%20and%20orange%20colors%20clean%20design&image_size=landscape_16_9"
-              alt="Education illustration"
-              className="w-full rounded-3xl shadow-2xl"
-            />
+        {/* RIGHT SIDE - White/Light Form Panel */}
+        <div className="flex items-center justify-center min-h-screen bg-gray-50 p-6 lg:p-12">
+          <div className="w-full max-w-md">
+            {/* Mobile brand header */}
+            <div className="lg:hidden flex items-center justify-center gap-3 mb-10">
+              <div className="shield-logo w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg shadow-[#d4a017]/20">
+                <svg className="w-7 h-7 text-white" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2L4 6v6c0 5.55 3.84 10.74 8 12 4.16-1.26 8-6.45 8-12V6l-8-4zm0 10.99h6c-.53 4.12-3.28 7.79-6 8.94V12.99H6V7.07l6-3v8.92z" />
+                </svg>
+              </div>
+              <div>
+                <h2 className="text-[#0a1628] text-xl font-extrabold tracking-tight">OAU CSE</h2>
+                <p className="text-gray-500 text-xs">Academic Search Engine</p>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8 md:p-10">
+              <div className="mb-8">
+                <h1 className="text-[#0a1628] text-2xl md:text-3xl font-bold mb-2">Sign in to your account</h1>
+                <p className="text-gray-500 text-sm">Enter your credentials to continue</p>
+              </div>
+
+              <form onSubmit={handleSubmit} className="space-y-5">
+                <div>
+                  <label className="block text-sm font-semibold text-[#0a1628] mb-2">Email Address</label>
+                  <div className="relative">
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
+                      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+                        <polyline points="22,6 12,13 2,6" />
+                      </svg>
+                    </div>
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                      className="w-full pl-12 pr-4 py-3.5 rounded-lg border border-gray-200 text-[#0a1628] bg-gray-50 focus:bg-white focus:ring-2 focus:ring-[#d4a017]/30 focus:border-[#d4a017] outline-none transition-all text-sm"
+                      placeholder="you@oauife.edu.ng"
+                      autoComplete="email"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-[#0a1628] mb-2">Password</label>
+                  <div className="relative">
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
+                      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                      </svg>
+                    </div>
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      className="w-full pl-12 pr-12 py-3.5 rounded-lg border border-gray-200 text-[#0a1628] bg-gray-50 focus:bg-white focus:ring-2 focus:ring-[#d4a017]/30 focus:border-[#d4a017] outline-none transition-all text-sm"
+                      placeholder="••••••••"
+                      autoComplete="current-password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#0a1628] transition-colors"
+                    >
+                      {showPassword ? (
+                        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                          <line x1="1" y1="1" x2="23" y2="23" />
+                        </svg>
+                      ) : (
+                        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                          <circle cx="12" cy="12" r="3" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex justify-end">
+                  <Link href="#" className="text-sm font-medium hover:underline" style={{ color: "#d4a017" }}>
+                    Forgot password?
+                  </Link>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="btn-primary w-full py-3.5 rounded-lg disabled:opacity-60 disabled:cursor-not-allowed text-sm shadow-lg shadow-[#0a1628]/20 hover:shadow-xl hover:shadow-[#0a1628]/25 transition-all"
+                >
+                  {loading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      Signing in...
+                    </span>
+                  ) : (
+                    "Sign In"
+                  )}
+                </button>
+              </form>
+
+              {message && (
+                <div className="mt-5 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                  {message}
+                </div>
+              )}
+
+              <div className="mt-8 flex items-center gap-4">
+                <div className="flex-1 h-px bg-gray-200" />
+                <span className="text-xs text-gray-500 font-medium">Or continue with</span>
+                <div className="flex-1 h-px bg-gray-200" />
+              </div>
+
+              <div className="mt-6 grid grid-cols-3 gap-3">
+                {socialLogins.map((social) => (
+                  <button
+                    key={social.label}
+                    type="button"
+                    className="btn-outline py-3 rounded-lg hover:border-[#d4a017] hover:bg-[#d4a017]/5 transition-all"
+                  >
+                    {social.icon}
+                  </button>
+                ))}
+              </div>
+
+              <div className="mt-8 pt-6 border-t border-gray-100">
+                <p className="text-center text-sm text-gray-600">
+                  Don&apos;t have an account?{" "}
+                  <Link href="/auth/register" className="font-bold hover:underline" style={{ color: "#d4a017" }}>
+                    Sign Up
+                  </Link>
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </div>

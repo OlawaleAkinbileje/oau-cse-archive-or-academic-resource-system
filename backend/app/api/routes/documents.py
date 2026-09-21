@@ -18,31 +18,6 @@ from app.services.staff_documents_service import delete_staff_document, list_sta
 router = APIRouter(prefix="/documents", tags=["documents"])
 
 
-@router.post("/upload", response_model=DocumentUploadResponse)
-async def upload_document(
-    file: UploadFile = File(...),
-    course_code: str = Form(...),
-    level: str = Form(...),
-    db: Session = Depends(get_db),
-    user: User = Depends(verify_staff_status),
-):
-    document, metadata = await create_document(
-        db=db,
-        uploaded_by=SimpleNamespace(id=user.id),
-        file=file,
-        course_code=course_code,
-        level=level,
-    )
-    return DocumentUploadResponse(
-        id=document.id,
-        title=document.title,
-        file_path=document.file_path,
-        uploaded_by=document.uploaded_by,
-        created_at=document.created_at,
-        metadata=DocumentMetadataResponse.model_validate(metadata),
-    )
-
-
 @router.get("/mine", response_model=list[StaffDocumentItem])
 def get_my_documents(
     db: Session = Depends(get_db),
@@ -82,7 +57,7 @@ def get_single_document(
 
 @router.patch("/{document_id}", response_model=StaffDocumentItem)
 def patch_document(
-    document_id: str,
+    document_id: int,
     payload: StaffDocumentUpdateRequest,
     db: Session = Depends(get_db),
     user: User = Depends(verify_staff_status),
@@ -101,7 +76,7 @@ def patch_document(
 
 @router.delete("/{document_id}")
 def remove_document(
-    document_id: str,
+    document_id: int,
     db: Session = Depends(get_db),
     user: User = Depends(verify_staff_status),
 ):

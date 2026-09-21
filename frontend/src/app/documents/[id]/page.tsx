@@ -1,332 +1,217 @@
 "use client";
 
-import { ChangeEvent, Suspense, useEffect, useMemo, useState } from "react";
-import { useParams } from "next/navigation";
-import { Document, Page, pdfjs } from "react-pdf";
-import "react-pdf/dist/Page/AnnotationLayer.css";
-import "react-pdf/dist/Page/TextLayer.css";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
-
-import { BackButton } from "@/components/BackButton";
-import { CodePreview } from "@/components/CodePreview";
+import { ReactNode, Suspense, useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
+import { getDocumentDetail, getComments, postComment } from "@/lib/api";
+import { DocumentDetail as DocumentDetailType } from "@/types";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
-import { WorkspaceRail } from "@/components/WorkspaceRail";
-import { getComments, postComment, getDocumentDetail } from "@/lib/api";
-import { CommentItem, DocumentDetail as DocumentDetailType } from "@/types";
+import { useAuth } from "@/components/AuthProvider";
+import { useNavbarSlot } from "@/components/NavbarProvider";
 
-pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
-
-function formatCommentTime(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "Just now";
-  }
-
-  return new Intl.DateTimeFormat("en-NG", {
-    day: "numeric",
-    month: "short",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(date);
-}
-
-function CommentItemComponent({
-  item,
-  documentId,
-  onCommentPosted,
-  level = 0,
-}: {
-  item: CommentItem;
-  documentId: number;
-  onCommentPosted: (comment: CommentItem) => void;
-  level?: number;
-}) {
-  const [showReply, setShowReply] = useState(false);
-  const [replyContent, setReplyContent] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-
-  const author = item.author_name || "Archive User";
-  const indent = level > 0 ? "ml-8 border-l border-slate-200 pl-4" : "";
-
-  const handleSubmitReply = async (e: ChangeEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!replyContent.trim()) return;
-
-    setSubmitting(true);
-    try {
-      const newComment = await postComment(documentId, replyContent.trim(), item.id);
-      onCommentPosted({
-        ...newComment,
-        author_name: newComment.author_name ?? "You",
-      });
-      setShowReply(false);
-      setReplyContent("");
-    } catch (error) {
-      console.error("Failed to post reply:", error);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
+function DocumentOutline() {
   return (
-    <article key={item.id} className={`glass-card-soft p-4 ${indent}`}>
-      <div className="flex items-start gap-4">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-blue-700 text-sm font-semibold text-white shadow-md">
-          {author.charAt(0)}
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-3">
-            <p className="font-semibold text-slate-900">{author}</p>
-            <span className="text-xs text-slate-500">{formatCommentTime(item.created_at)}</span>
-          </div>
-          <p className="mt-2 text-sm leading-7 text-slate-600">{item.content}</p>
-          <button
-            type="button"
-            onClick={() => setShowReply(!showReply)}
-            className="mt-2 text-sm text-blue-600 hover:text-blue-700 font-medium"
-          >
-            Reply
-          </button>
-          {showReply && (
-            <form onSubmit={handleSubmitReply} className="mt-3 space-y-3">
-              <textarea
-                value={replyContent}
-                onChange={(e) => setReplyContent(e.target.value)}
-                placeholder="Write your reply..."
-                className="input-surface w-full min-h-24 px-4 py-3 outline-none text-slate-900"
-              />
-              <button
-                type="submit"
-                disabled={submitting}
-                className="primary-button text-sm"
-              >
-                {submitting ? "Posting..." : "Post Reply"}
-              </button>
-            </form>
-          )}
-          {item.replies && item.replies.length > 0 && (
-            <div className="mt-3 space-y-3">
-              {item.replies.map((reply) => (
-                <CommentItemComponent
-                  key={reply.id}
-                  item={reply}
-                  documentId={documentId}
-                  onCommentPosted={onCommentPosted}
-                  level={level + 1}
-                />
-              ))}
-            </div>
-          )}
+    <aside className="hidden lg:block w-64 shrink-0">
+      <div className="sticky top-24">
+        <div className="card p-5">
+          <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-slate-500 mb-4">Document Outline</h3>
+          <nav className="space-y-1">
+            <ol className="space-y-1">
+              <li>
+                <a className="outline-item" href="#intro">
+                  1. Introduction
+                </a>
+              </li>
+              <li>
+                <a className="outline-item" href="#what-is">
+                  2. What is Binary Search?
+                </a>
+              </li>
+              <li>
+                <a className="outline-item" href="#approaches">
+                  3. Approaches to Binary Search
+                </a>
+                <ol className="mt-1">
+                  <li>
+                    <a className="outline-item level-2" href="#iterative">
+                      3.1 Iterative Approach
+                    </a>
+                  </li>
+                  <li>
+                    <a className="outline-item level-2" href="#recursive">
+                      3.2 Recursive Approach
+                    </a>
+                  </li>
+                </ol>
+              </li>
+              <li>
+                <a className="outline-item" href="#complexity">
+                  4. Complexity Analysis
+                </a>
+              </li>
+              <li>
+                <a className="outline-item" href="#applications">
+                  5. Applications
+                </a>
+              </li>
+              <li>
+                <a className="outline-item" href="#walkthrough">
+                  6. Example Walkthrough
+                </a>
+              </li>
+              <li>
+                <a className="outline-item" href="#summary">
+                  7. Summary
+                </a>
+              </li>
+              <li>
+                <a className="outline-item" href="#references">
+                  8. References
+                </a>
+              </li>
+            </ol>
+          </nav>
         </div>
       </div>
-    </article>
+    </aside>
   );
 }
 
-function DocumentViewer({ doc }: { doc: DocumentDetailType }) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [editedCode, setEditedCode] = useState(doc.content_text || doc.metadata.key_snippet || "");
-
-  const titleLower = doc.title.toLowerCase();
-  const isPDF = titleLower.endsWith(".pdf") || doc.metadata.programming_language === "pdf";
-  const isVideo = ["mp4", "webm", "avi", "mov", "mkv", "flv", "wmv"].some((ext) => titleLower.endsWith(`.${ext}`));
-  const isImage = ["jpg", "jpeg", "png", "gif", "webp", "svg", "bmp", "tiff"].some((ext) => titleLower.endsWith(`.${ext}`));
-  const isOffice = ["docx", "doc", "xlsx", "xls", "pptx", "ppt", "odt", "ods", "odp"].some((ext) => titleLower.endsWith(`.${ext}`));
-  const isMarkdown = titleLower.endsWith(".md") || titleLower.endsWith(".markdown");
-  const isText = ["txt", "json", "xml", "html", "css", "js", "ts", "py", "java", "c", "cpp", "h", "cs", "php", "rb", "go", "rs", "kt", "swift"].some((ext) => titleLower.endsWith(`.${ext}`));
-
-  const codeBlock = doc.content_text || doc.metadata.key_snippet || "";
-
-  const getViewerUrl = () => {
-    if (isOffice) {
-      return `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(doc.file_url)}`;
-    }
-    return null;
-  };
-
-  const officeViewerUrl = getViewerUrl();
-
+function RelatedResourceCard({
+  title,
+  type,
+  timeAgo,
+  typeClass,
+}: {
+  title: string;
+  type: string;
+  timeAgo: string;
+  typeClass: string;
+}) {
   return (
-    <div className="mt-6">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-slate-900">File Viewer</h3>
-        <div className="flex items-center gap-3">
-          {(isText || isMarkdown || (!isPDF && !isVideo && !isImage && !isOffice)) && (
-            <button
-              type="button"
-              onClick={() => setIsEditing(!isEditing)}
-              className="px-4 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-900 text-sm font-medium transition-colors"
-            >
-              {isEditing ? "Stop Editing" : "Edit"}
-            </button>
-          )}
-          <a
-            href={doc.file_url}
-            download
-            className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-colors flex items-center gap-2 shadow-md"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-            </svg>
-            Download
-          </a>
-        </div>
+    <div className="card card-hover p-4 flex flex-col gap-3 cursor-pointer">
+      <div className="flex items-center gap-2">
+        <span className={`badge ${typeClass}`}>{type}</span>
+        <span className="text-xs text-muted ml-auto">{timeAgo}</span>
       </div>
-
-      {isPDF && (
-        <div className="w-full rounded-xl border border-slate-200 shadow-lg overflow-hidden">
-          <iframe
-            src={`${doc.file_url}#toolbar=1&navpanes=1&scrollbar=1`}
-            className="w-full h-[800px]"
-            title={doc.title}
-            allowFullScreen
-          />
-        </div>
-      )}
-
-      {isVideo && (
-        <div className="w-full rounded-xl border border-slate-200 shadow-lg overflow-hidden bg-black">
-          <div className="aspect-video max-h-[600px]">
-            <video
-              className="w-full h-full"
-              controls
-              playsInline
-              preload="metadata"
-              poster=""
-            >
-              <source src={doc.file_url} type="video/mp4" />
-              <source src={doc.file_url} type="video/webm" />
-              <source src={doc.file_url} type="video/ogg" />
-              <div className="flex items-center justify-center h-full text-white p-8 text-center">
-                <div>
-                  <p className="text-lg font-semibold mb-2">Video playback not supported</p>
-                  <p className="text-sm text-gray-300">Your browser doesn&apos;t support video playback.</p>
-                  <a
-                    href={doc.file_url}
-                    download
-                    className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-white text-sm font-medium transition-colors"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                    </svg>
-                    Download Video
-                  </a>
-                </div>
-              </div>
-            </video>
-          </div>
-        </div>
-      )}
-
-      {isImage && (
-        <div className="w-full rounded-xl border border-slate-200 shadow-lg overflow-hidden bg-slate-100 flex justify-center items-center">
-          <img
-            src={doc.file_url}
-            alt={doc.title}
-            className="max-w-full max-h-[800px] object-contain"
-            loading="lazy"
-          />
-        </div>
-      )}
-
-      {isOffice && officeViewerUrl && (
-        <div className="w-full rounded-xl border border-slate-200 shadow-lg overflow-hidden">
-          <iframe
-            src={officeViewerUrl}
-            className="w-full h-[800px]"
-            title={doc.title}
-            allowFullScreen
-          />
-        </div>
-      )}
-
-      {isMarkdown && (
-        isEditing ? (
-          <CodePreview
-            language="markdown"
-            code={editedCode}
-            editable={true}
-            onChange={setEditedCode}
-          />
-        ) : (
-          <div className="glass-card-soft p-6 md:p-8 prose prose-slate max-w-none">
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm]}
-              components={{
-                code({ node, inline, className, children, ...rest }: React.ComponentProps<'code'> & { node?: unknown; inline?: boolean }) {
-                  const match = /language-(\w+)/.exec(className || "");
-                  return !inline && match ? (
-                    <div className="my-4 rounded-lg overflow-hidden">
-                      <SyntaxHighlighter
-                        style={vscDarkPlus}
-
-                        language={match[1]}
-                        PreTag="div"
-                        customStyle={{ margin: 0 }}
-                        showLineNumbers
-                        wrapLines
-                      >
-                        {String(children).replace(/\n$/, "")}
-                      </SyntaxHighlighter>
-                    </div>
-                  ) : (
-                    <code className={className} {...rest}>
-                      {children}
-                    </code>
-                  );
-                },
-                h1: ({ ...props }) => <h1 className="text-3xl font-bold text-slate-900 mb-4 pb-2 border-b border-slate-200" {...props} />,
-                h2: ({ ...props }) => <h2 className="text-2xl font-semibold text-slate-900 mt-6 mb-3" {...props} />,
-                h3: ({ ...props }) => <h3 className="text-xl font-semibold text-slate-900 mt-5 mb-2" {...props} />,
-                p: ({ ...props }) => <p className="text-slate-700 leading-7 mb-4" {...props} />,
-                ul: ({ ...props }) => <ul className="list-disc list-outside ml-6 space-y-2 text-slate-700 mb-4" {...props} />,
-                ol: ({ ...props }) => <ol className="list-decimal list-outside ml-6 space-y-2 text-slate-700 mb-4" {...props} />,
-                blockquote: ({ ...props }) => <blockquote className="border-l-4 border-blue-500 pl-4 italic text-slate-600 my-4 bg-blue-50 py-2 pr-4 rounded-r-lg" {...props} />,
-                a: ({ ...props }) => <a className="text-blue-600 hover:text-blue-700 underline" {...props} />,
-                table: ({ ...props }) => <div className="overflow-x-auto mb-4"><table className="min-w-full divide-y divide-slate-200 border border-slate-200 rounded-lg overflow-hidden" {...props} /></div>,
-                thead: ({ ...props }) => <thead className="bg-slate-50" {...props} />,
-                th: ({ ...props }) => <th className="px-4 py-3 text-left text-sm font-semibold text-slate-900 border-b border-slate-200" {...props} />,
-                td: ({ ...props }) => <td className="px-4 py-3 text-sm text-slate-700 border-b border-slate-100" {...props} />,
-              }}
-            >
-              {isEditing ? editedCode : codeBlock}
-            </ReactMarkdown>
-          </div>
-        )
-      )}
-
-      {(isText || (!isPDF && !isVideo && !isImage && !isOffice && !isMarkdown)) && (
-        <CodePreview
-          language={doc.metadata.programming_language || "text"}
-          code={isEditing ? editedCode : codeBlock}
-          editable={isEditing}
-          onChange={setEditedCode}
-        />
-      )}
-
-      {!isPDF && !isVideo && !isImage && !isOffice && !isMarkdown && !isText && !doc.content_text && !doc.metadata.key_snippet && (
-        <div className="glass-card-soft p-8 text-center">
-          <p className="text-slate-600 text-lg">No preview available for this file type</p>
-          <p className="text-slate-500 text-sm mt-2">Please download the file to view it</p>
-        </div>
-      )}
+      <h4 className="text-sm font-semibold text-slate-900 leading-snug line-clamp-2">{title}</h4>
+      <div className="flex items-center gap-2 mt-auto pt-2 text-xs text-muted">
+        <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current" strokeWidth="2">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+        </svg>
+        <span>View document</span>
+      </div>
     </div>
   );
+}
+
+function PDFViewer({ fileUrl, title }: { fileUrl: string; title: string }) {
+  return (
+    <div className="mt-8">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">Full Document Preview</h3>
+        <a
+          href={fileUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1.5"
+        >
+          <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current" strokeWidth="2">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+          </svg>
+          Open in new tab
+        </a>
+      </div>
+      <div className="w-full rounded-2xl border border-slate-200 bg-slate-50 overflow-hidden">
+        <iframe
+          src={`${fileUrl}#toolbar=1&navpanes=0&scrollbar=1`}
+          className="w-full h-[500px] bg-white opacity-90"
+          title={title}
+          allowFullScreen
+        />
+      </div>
+    </div>
+  );
+}
+
+function renderComments(list: any[]): ReactNode {
+  return list.map((comment, idx) => {
+    const initial = (comment.author_name || "U").charAt(0).toUpperCase();
+    return (
+      <div key={idx} className="space-y-3">
+        <div className="flex gap-3">
+          <div className="rounded-full bg-amber-100 text-amber-800 w-9 h-9 flex items-center justify-center font-semibold shrink-0">
+            {initial}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm font-semibold text-slate-900">{comment.author_name || "Anonymous"}</span>
+              <span className="text-xs text-slate-500">
+                {new Date(comment.created_at).toLocaleString()}
+              </span>
+            </div>
+            <p className="mt-1.5 text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{comment.content}</p>
+          </div>
+        </div>
+        {comment.replies && comment.replies.length > 0 && (
+          <div className="ml-12 pl-4 border-l-2 border-slate-200 space-y-5">
+            {renderComments(comment.replies)}
+          </div>
+        )}
+      </div>
+    );
+  });
 }
 
 function DocumentDetailPageContent() {
   const params = useParams<{ id: string }>();
   const documentId = Number(params.id);
+  const router = useRouter();
+  const { session } = useAuth();
   const [doc, setDoc] = useState<DocumentDetailType | null>(null);
   const [loading, setLoading] = useState(true);
-  const [comment, setComment] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [feedback, setFeedback] = useState<string | null>(null);
-  const [discussion, setDiscussion] = useState<CommentItem[]>([]);
-  const [loadingComments, setLoadingComments] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [bookmarked, setBookmarked] = useState(false);
+  const [comments, setComments] = useState<any[]>([]);
+  const [commentText, setCommentText] = useState("");
+  const [postingComment, setPostingComment] = useState(false);
+  const [loadingComments, setLoadingComments] = useState(false);
+  const [docSearchInput, setDocSearchInput] = useState("");
+
+  useNavbarSlot(
+    "center",
+    (
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          const q = docSearchInput.trim();
+          if (q) router.push(`/results?q=${encodeURIComponent(q)}`);
+        }}
+        className="w-full max-w-2xl mx-auto"
+      >
+        <div className="input-surface relative flex items-center overflow-hidden px-4 py-2.5 rounded-xl border border-slate-200 focus-within:border-[#d4a017] focus-within:ring-2 focus-within:ring-[#d4a017]/20 transition-all bg-slate-50">
+          <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 shrink-0 text-slate-400">
+            <path
+              fill="none"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="1.8"
+              d="m21 21-4.35-4.35M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z"
+            />
+          </svg>
+          <input
+            value={docSearchInput}
+            onChange={(e) => setDocSearchInput(e.target.value)}
+            placeholder="Search algorithms, course materials, lecture notes..."
+            className="w-full bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-500 px-3"
+          />
+        </div>
+      </form>
+    ),
+    [docSearchInput],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -334,29 +219,28 @@ function DocumentDetailPageContent() {
     const loadData = async () => {
       if (Number.isNaN(documentId)) {
         setLoading(false);
-        setLoadingComments(false);
         return;
       }
 
       setLoading(true);
       try {
-        const [documentData, comments] = await Promise.all([
-          getDocumentDetail(documentId),
-          getComments(documentId),
-        ]);
+        const documentData = await getDocumentDetail(documentId);
         if (!cancelled) {
           setDoc(documentData);
-          setDiscussion(comments);
+          getComments(documentId)
+            .then(list => {
+              if (!cancelled) setComments(list || []);
+            })
+            .catch(() => {});
         }
-      } catch (error) {
+      } catch (err) {
         if (!cancelled) {
-          const message = error instanceof Error ? error.message : "Failed to load data.";
-          setFeedback(message);
+          const message = err instanceof Error ? err.message : "Failed to load document.";
+          setError(message);
         }
       } finally {
         if (!cancelled) {
           setLoading(false);
-          setLoadingComments(false);
         }
       }
     };
@@ -368,262 +252,268 @@ function DocumentDetailPageContent() {
     };
   }, [documentId]);
 
-  const handleCommentPosted = (newComment: CommentItem) => {
-    if (newComment.parent_comment_id) {
-      const addReply = (comments: CommentItem[]): CommentItem[] => {
-        return comments.map((c) => {
-          if (c.id === newComment.parent_comment_id) {
-            return {
-              ...c,
-              replies: [...(c.replies || []), newComment],
-            };
-          }
-          if (c.replies && c.replies.length > 0) {
-            return {
-              ...c,
-              replies: addReply(c.replies),
-            };
-          }
-          return c;
-        });
-      };
-      setDiscussion(addReply(discussion));
-    } else {
-      setDiscussion([newComment, ...discussion]);
-    }
-    setFeedback("Comment posted successfully.");
-  };
-
-  const handleCommentSubmit = async (event: ChangeEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!comment.trim()) return;
-    setSubmitting(true);
-    setFeedback(null);
-
+  const handlePostComment = async () => {
+    if (!commentText.trim() || !session.accessToken) return;
+    setPostingComment(true);
     try {
-      const createdComment = await postComment(documentId, comment.trim());
-      handleCommentPosted({
-        ...createdComment,
-        author_name: createdComment.author_name ?? "You",
-      });
-      setComment("");
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Could not post comment.";
-      setFeedback(message);
+      const newC = await postComment(documentId, commentText.trim(), null);
+      setComments(prev => [newC, ...prev]);
+      setCommentText("");
+    } catch (e) {
+      alert("Failed to post comment.");
     } finally {
-      setSubmitting(false);
+      setPostingComment(false);
     }
   };
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 relative overflow-hidden">
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <img
-            src="https://coresg-normal.trae.ai/api/v1/text-to-image?prompt=education%20illustration%20books%20and%20gears%20in%20blue%20and%20orange%20colors&image_size=square"
-            alt=""
-            className="absolute -right-10 top-10 w-96 opacity-40"
-          />
-          <img
-            src="https://coresg-normal.trae.ai/api/v1/text-to-image?prompt=abstract%20educational%20shapes%20pencils%20books%20blue%20theme&image_size=square"
-            alt=""
-            className="absolute -left-20 bottom-20 w-72 opacity-30"
-          />
-        </div>
-        <div className="relative z-10 flex min-h-screen items-center justify-center px-4 py-10">
-          <section className="glass-panel p-10 text-center">
+      <main className="min-h-screen bg-white">
+        <div className="flex min-h-[60vh] items-center justify-center pt-8">
+          <div className="text-center">
             <LoadingSpinner />
-            <p className="mt-2 text-sm text-slate-600">Loading resource...</p>
-          </section>
+            <p className="mt-4 text-sm text-slate-600">Loading document...</p>
+          </div>
         </div>
       </main>
     );
   }
 
-  if (!doc) {
+  if (error || !doc) {
     return (
-      <main className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 relative overflow-hidden">
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <img
-            src="https://coresg-normal.trae.ai/api/v1/text-to-image?prompt=education%20illustration%20books%20and%20gears%20in%20blue%20and%20orange%20colors&image_size=square"
-            alt=""
-            className="absolute -right-10 top-10 w-96 opacity-40"
-          />
-          <img
-            src="https://coresg-normal.trae.ai/api/v1/text-to-image?prompt=abstract%20educational%20shapes%20pencils%20books%20blue%20theme&image_size=square"
-            alt=""
-            className="absolute -left-20 bottom-20 w-72 opacity-30"
-          />
-        </div>
-        <div className="relative z-10 flex min-h-screen items-center justify-center px-4 py-10">
-          <section className="glass-panel p-10 text-center">
-            <p className="text-xl text-slate-900">Document not found</p>
-          </section>
+      <main className="min-h-screen bg-white">
+        <div className="max-w-3xl mx-auto px-4 py-16 text-center">
+          <p className="text-xl font-semibold text-slate-900">Document not found</p>
+          <p className="mt-2 text-sm text-muted">{error || "The requested document could not be loaded."}</p>
+          <Link href="/results?q=" className="btn-primary mt-6 inline-flex">
+            Back to Search
+          </Link>
         </div>
       </main>
     );
   }
 
-  const tagItems = [
-    doc.metadata.course_code,
-    doc.metadata.level ? `${doc.metadata.level} level` : null,
-    doc.metadata.programming_language,
-  ].filter(Boolean) as string[];
+  const fileUrl = doc.file_url;
+
+  const truncatedTitle = doc.title.length > 50 ? doc.title.substring(0, 50) + "..." : doc.title;
+
+  let badgeLabel: string;
+  let badgeClass: string;
+  if (doc.metadata?.programming_language) {
+    badgeLabel = doc.metadata.programming_language.toUpperCase();
+    badgeClass = "badge-py";
+  } else if (doc.metadata?.course_code) {
+    badgeLabel = doc.metadata.course_code;
+    badgeClass = "badge-default";
+  } else {
+    badgeLabel = "Document";
+    badgeClass = "badge-default";
+  }
+
+  const courseInfo = doc.metadata?.course_code
+    ? `${doc.metadata.course_code}${doc.metadata?.level ? ` - Level ${doc.metadata.level}` : ""}`
+    : "Resource Document";
+  const uploadedDate = new Date(doc.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+
+  const titleLower = (doc.title || "").toLowerCase();
+  const fileUrlLower = (doc.file_url || "").toLowerCase();
+  let fileBadgeLabel: string;
+  let fileBadgeClass: string;
+  if (titleLower.endsWith('.py') || fileUrlLower.endsWith('.py') || doc.metadata?.programming_language) {
+    fileBadgeLabel = "CODE";
+    fileBadgeClass = "badge-py";
+  } else if (titleLower.endsWith('.pdf') || fileUrlLower.endsWith('.pdf')) {
+    fileBadgeLabel = "PDF";
+    fileBadgeClass = "badge-pdf";
+  } else if (titleLower.endsWith('.ppt') || titleLower.endsWith('.pptx') || fileUrlLower.endsWith('.ppt') || fileUrlLower.endsWith('.pptx')) {
+    fileBadgeLabel = "PPTX";
+    fileBadgeClass = "badge-ppt";
+  } else {
+    fileBadgeLabel = "FILE";
+    fileBadgeClass = "badge-default";
+  }
+
+  const abstractContent = doc.metadata?.key_snippet
+    ? doc.metadata.key_snippet
+    : doc.content_text
+    ? doc.content_text.substring(0, 400) + (doc.content_text.length > 400 ? "..." : "")
+    : "No abstract available.";
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 relative overflow-hidden">
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <img
-          src="https://coresg-normal.trae.ai/api/v1/text-to-image?prompt=education%20illustration%20books%20and%20gears%20in%20blue%20and%20orange%20colors&image_size=square"
-          alt=""
-          className="absolute -right-10 top-10 w-96 opacity-40"
-        />
-        <img
-          src="https://coresg-normal.trae.ai/api/v1/text-to-image?prompt=abstract%20educational%20shapes%20pencils%20books%20blue%20theme&image_size=square"
-          alt=""
-          className="absolute -left-20 bottom-20 w-72 opacity-30"
-        />
-      </div>
+    <main className="min-h-screen bg-slate-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <nav className="flex items-center gap-2 text-sm text-slate-500 mb-6">
+          <Link href="/" className="hover:text-slate-700 transition-colors">
+            Home
+          </Link>
+          <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current" strokeWidth="2">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+          <Link href="/results?q=" className="hover:text-slate-700 transition-colors">
+            Search Results
+          </Link>
+          <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current" strokeWidth="2">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+          <span className="text-slate-900 font-medium truncate">{truncatedTitle}</span>
+        </nav>
 
-      <div className="relative z-10 min-h-screen">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="flex flex-col lg:flex-row gap-8">
-            <div className="lg:hidden">
-              <WorkspaceRail />
-            </div>
+        <div className="flex gap-8">
+          <DocumentOutline />
 
-            <div className="flex-1 space-y-6 min-w-0">
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <BackButton fallbackHref="/results?q=" label="Back to Results" />
-                <div className="flex flex-wrap gap-3">
-                  {tagItems.map((item) => (
-                    <span key={item} className="status-pill">
-                      {item}
-                    </span>
-                  ))}
-                </div>
+          <div className="flex-1 min-w-0 space-y-6">
+            <section className="card p-6 md:p-8">
+              <div className="flex items-center gap-3 mb-5">
+                <span className={`badge ${badgeClass}`}>{badgeLabel}</span>
               </div>
 
-              <section className="glass-panel p-6 md:p-8">
-                <p className="section-label">Resource Detail</p>
-                <div className="mt-4 grid gap-6 xl:grid-cols-[1.35fr_0.65fr]">
-                  <div>
-                    <h1 className="text-3xl font-semibold text-slate-900 md:text-5xl">{doc.title}</h1>
-                    <p className="mt-4 max-w-3xl text-sm leading-8 text-slate-600 md:text-base">
-                      {doc.metadata.key_snippet}
-                    </p>
+              <h1 className="text-3xl md:text-4xl font-bold text-slate-900 leading-tight mb-5">
+                {doc.title}
+              </h1>
+
+              <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600 mb-4">
+                <span className="font-medium text-slate-900">{courseInfo}</span>
+                <span className="w-1 h-1 rounded-full bg-slate-400" />
+                <span>{uploadedDate}</span>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3 text-sm text-slate-500 mb-6 pb-6 border-b border-slate-100">
+                <span className="inline-flex items-center gap-1.5">
+                  <span className={`badge ${fileBadgeClass}`}>{fileBadgeLabel}</span>
+                </span>
+                {doc.metadata?.programming_language && (
+                  <>
+                    <span className="text-slate-400">|</span>
+                    <span>Code: {doc.metadata.programming_language}</span>
+                  </>
+                )}
+                <span className="text-slate-400">|</span>
+                <span>Uploaded {uploadedDate}</span>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <button type="button" className="btn-primary">
+                  <svg viewBox="0 0 24 24" className="h-5 w-5 fill-none stroke-current" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                  Preview Document
+                </button>
+                <a
+                  href={fileUrl}
+                  download
+                  className="btn-outline"
+                >
+                  <svg viewBox="0 0 24 24" className="h-5 w-5 fill-none stroke-current" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  Download
+                </a>
+                <button type="button" className="btn-outline">
+                  <svg viewBox="0 0 24 24" className="h-5 w-5 fill-none stroke-current" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                  </svg>
+                  Cite
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBookmarked(!bookmarked)}
+                  className={`btn-outline !px-3 ${bookmarked ? "bg-yellow-50 border-yellow-300" : ""}`}
+                  aria-label="Bookmark"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    className={`h-5 w-5 stroke-current ${bookmarked ? "fill-yellow-500 stroke-yellow-500" : "fill-none"}`}
+                    strokeWidth="2"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                  </svg>
+                </button>
+              </div>
+            </section>
+
+            <section className="card p-6 md:p-8">
+              <h2 className="text-lg font-bold text-slate-900 mb-4">Abstract</h2>
+              <p className="text-slate-600 leading-7 text-sm md:text-base">
+                {abstractContent}
+              </p>
+            </section>
+
+            <section className="card p-6 md:p-8">
+              <div className="flex items-center justify-between mb-5">
+                <h2 className="text-lg font-bold text-slate-900">Related Resources</h2>
+                <Link
+                  href="/results?q=binary%20search"
+                  className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
+                >
+                  View all
+                  <svg viewBox="0 0 24 24" className="h-4 w-4 fill-none stroke-current" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                  </svg>
+                </Link>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <RelatedResourceCard
+                  title="Implementation of Binary Search in Python"
+                  type="Python"
+                  timeAgo="12 min ago"
+                  typeClass="badge-py"
+                />
+                <RelatedResourceCard
+                  title="Sorting and Searching Performance Labs"
+                  type="Manual"
+                  timeAgo="2 days ago"
+                  typeClass="badge-default"
+                />
+                <RelatedResourceCard
+                  title="Tree Traversals and Binary Search Trees"
+                  type="Slides"
+                  timeAgo="1 week ago"
+                  typeClass="badge-ppt"
+                />
+              </div>
+            </section>
+
+            <section className="card p-6 md:p-8">
+              <PDFViewer fileUrl={fileUrl} title={doc.title} />
+            </section>
+
+            <section className="card p-6 md:p-8">
+              <h2 className="text-lg font-bold text-slate-900 mb-5">Comments {comments.length ? `(${comments.length})` : ""}</h2>
+
+              {session.accessToken ? (
+                <div className="mb-6">
+                  <textarea
+                    value={commentText}
+                    onChange={e => setCommentText(e.target.value)}
+                    rows={3}
+                    placeholder="Write a comment..."
+                    className="w-full input-surface rounded-xl border border-slate-200 p-3 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                  />
+                  <div className="mt-3 flex justify-end">
+                    <button
+                      type="button"
+                      disabled={postingComment || !commentText.trim()}
+                      onClick={handlePostComment}
+                      className="btn-primary text-sm disabled:opacity-50"
+                    >
+                      {postingComment ? "Posting..." : "Post Comment"}
+                    </button>
                   </div>
-                  <aside className="glass-card p-5">
-                    <p className="text-sm font-semibold uppercase tracking-[0.28em] text-blue-700">Overview</p>
-                    <div className="mt-5 space-y-4 text-sm">
-                      <div className="flex items-center justify-between gap-4 border-b border-slate-200 pb-3">
-                        <span className="text-muted">Course</span>
-                        <span className="font-medium text-slate-900">{doc.metadata.course_code || "N/A"}</span>
-                      </div>
-                      <div className="flex items-center justify-between gap-4 border-b border-slate-200 pb-3">
-                        <span className="text-muted">Level</span>
-                        <span className="font-medium text-slate-900">{doc.metadata.level || "N/A"}</span>
-                      </div>
-                      <div className="flex items-center justify-between gap-4 pb-1">
-                        <span className="text-muted">Language</span>
-                        <span className="font-medium text-slate-900">{doc.metadata.programming_language || "Resource"}</span>
-                      </div>
-                    </div>
-                    <div className="mt-6 rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm text-slate-700">
-                      Review the content carefully, then use the discussion box to add clarifications, fixes, or study notes.
-                    </div>
-                  </aside>
                 </div>
-              </section>
-
-              <section className="grid gap-6 xl:grid-cols-[1.3fr_0.7fr]">
-                <div className="glass-panel p-6 md:p-8">
-                  <div className="flex items-center justify-between gap-4">
-                    <div>
-                      <p className="section-label">Content Viewer</p>
-                      <h2 className="mt-3 text-2xl font-semibold text-slate-900">Preview the resource</h2>
-                    </div>
-                  </div>
-                  <DocumentViewer doc={doc} />
+              ) : (
+                <div className="mb-6 p-4 rounded-xl bg-slate-50 border border-slate-100 text-sm text-slate-600 flex items-center justify-between flex-wrap gap-3">
+                  <span>You must be logged in to post a comment.</span>
+                  <Link href="/auth/login" className="btn-outline text-xs">Log in to comment</Link>
                 </div>
+              )}
 
-                <aside className="glass-panel p-6">
-                  <p className="section-label">Focus Areas</p>
-                  <h2 className="mt-3 text-2xl font-semibold text-slate-900">Reading checklist</h2>
-                  <div className="mt-6 space-y-4">
-                    <div className="glass-card-soft p-4">
-                      <p className="font-semibold text-slate-900">Confirm the algorithm or concept</p>
-                      <p className="mt-2 text-sm text-muted">Check the metadata and preview to ensure this matches your intended topic.</p>
-                    </div>
-                    <div className="glass-card-soft p-4">
-                      <p className="font-semibold text-slate-900">Inspect the content</p>
-                      <p className="mt-2 text-sm text-muted">Review carefully and note any key points or findings.</p>
-                    </div>
-                    <div className="glass-card-soft p-4">
-                      <p className="font-semibold text-slate-900">Leave context for others</p>
-                      <p className="mt-2 text-sm text-muted">Post corrections, references, or links to related course material.</p>
-                    </div>
-                  </div>
-                </aside>
-              </section>
-
-              <section className="glass-panel p-6 md:p-8">
-                <div className="flex flex-wrap items-center justify-between gap-4">
-                  <div>
-                    <p className="section-label">Knowledge Hub</p>
-                    <h2 className="mt-3 text-2xl font-semibold text-slate-900">Discussion and notes</h2>
-                  </div>
-                </div>
-
-                <div className="mt-8 grid gap-6 xl:grid-cols-[1fr_320px]">
-                  <div className="space-y-4">
-                    {loadingComments && (
-                      <div className="glass-card-soft p-8 text-center">
-                        <LoadingSpinner />
-                        <p className="mt-2 text-sm text-slate-600">Loading comment history...</p>
-                      </div>
-                    )}
-                    {!loadingComments && discussion.length === 0 && (
-                      <article className="glass-card-soft p-5">
-                        <p className="font-semibold text-slate-900">No comments yet</p>
-                        <p className="mt-2 text-sm leading-7 text-slate-600">
-                          Be the first to add context, corrections, or related study notes for this resource.
-                        </p>
-                      </article>
-                    )}
-                    {!loadingComments &&
-                      discussion.map((item) => (
-                        <CommentItemComponent
-                          key={item.id}
-                          item={item}
-                          documentId={documentId}
-                          onCommentPosted={handleCommentPosted}
-                        />
-                      ))}
-                  </div>
-
-                  <div className="glass-card p-5">
-                    <h3 className="text-lg font-semibold text-slate-900">Post a note</h3>
-                    <form onSubmit={handleCommentSubmit} className="mt-4 space-y-4">
-                      <textarea
-                        value={comment}
-                        onChange={(event) => setComment(event.target.value)}
-                        className="input-surface min-h-36 w-full px-4 py-3 outline-none text-slate-900"
-                        placeholder="Share context, corrections, or additional references..."
-                      />
-                      <button disabled={submitting} type="submit" className="primary-button w-full text-sm">
-                        {submitting ? "Posting..." : "Post Comment"}
-                      </button>
-                    </form>
-                    {feedback && <p className="mt-4 text-sm text-slate-600">{feedback}</p>}
-                  </div>
-                </div>
-              </section>
-            </div>
-
-            <div className="hidden lg:block">
-              <WorkspaceRail />
-            </div>
+              <div className="space-y-5">
+                {loadingComments && <div className="text-sm text-slate-500">Loading comments...</div>}
+                {!loadingComments && comments.length === 0 && <div className="text-sm text-slate-500">No comments yet. Be the first to comment!</div>}
+                {renderComments(comments)}
+              </div>
+            </section>
           </div>
         </div>
       </div>
@@ -635,12 +525,9 @@ export default function DocumentDetailPage() {
   return (
     <Suspense
       fallback={
-        <main className="min-h-screen pb-12 pt-8 md:pb-16 md:pt-10">
-          <div className="app-shell">
-            <section className="glass-panel p-10 text-center">
-              <LoadingSpinner />
-              <p className="mt-2 text-sm text-slate-600">Loading resource detail...</p>
-            </section>
+        <main className="min-h-screen bg-white">
+          <div className="flex min-h-screen items-center justify-center">
+            <LoadingSpinner />
           </div>
         </main>
       }

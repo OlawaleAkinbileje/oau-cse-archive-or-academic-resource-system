@@ -61,10 +61,14 @@ def test_token(authorization: Optional[str] = Header(None)):
 def startup_db_init() -> None:
     try:
         Base.metadata.create_all(bind=engine)
+    except Exception as exc:
+        logger.warning("Table creation skipped: %s", exc)
+    try:
         with engine.begin() as connection:
             connection.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
-    except SQLAlchemyError as exc:
-        logger.warning("Database initialization skipped: %s", exc)
+    except Exception as exc:
+        logger.warning("pg_trgm extension skipped: %s", exc)
+    logger.info("Startup complete.")
 
 
 @app.get("/health")

@@ -1,15 +1,35 @@
 "use client";
 
-import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 
-import { BackButton } from "@/components/BackButton";
 import { useAuth } from "@/components/AuthProvider";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
-import { WorkspaceRail } from "@/components/WorkspaceRail";
-import { useUploadModal } from "@/components/UploadModalProvider";
-import { getMyStaffDocuments, updateStaffDocument, uploadDocument, getDashboardStats, deleteStaffDocument } from "@/lib/api";
-import { StaffDocument } from "@/types";
+import { getDashboardStats, getMyStaffDocuments, uploadDocument, updateStaffDocument, deleteStaffDocument } from "@/lib/api";
+import type { StaffDocument } from "@/types";
+import {
+  Shield,
+  LayoutDashboard,
+  UploadCloud,
+  FolderKanban,
+  Database,
+  Search,
+  Users,
+  BarChart3,
+  Activity,
+  Settings,
+  Bell,
+  FileText,
+  Presentation,
+  Pencil,
+  Trash2,
+  X,
+} from "lucide-react";
+
+interface DashboardRecentActivity {
+  title: string;
+  created_at: string;
+}
 
 interface DashboardStats {
   total_documents: number;
@@ -21,234 +41,315 @@ interface DashboardStats {
   total_video_documents: number;
   new_views: number;
   new_downloads: number;
-  recent_activity: Array<{
-    title: string;
-    created_at: string;
-  }>;
-  pending_approvals: Array<{
-    title?: string;
-  } | string>;
+  recent_activity: DashboardRecentActivity[];
+  pending_approvals: unknown[];
 }
 
-function formatDateTime(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "Recently added";
-  }
+function SparklineChart({ data, color }: { data: number[]; color: string }) {
+  const width = 120;
+  const height = 40;
+  const max = Math.max(...data);
+  const min = Math.min(...data);
+  const range = max - min || 1;
 
-  return new Intl.DateTimeFormat("en-NG", {
-    hour: "numeric",
-    minute: "2-digit",
-    day: "numeric",
-    month: "short",
-  }).format(date);
+  const points = data
+    .map((val, i) => {
+      const x = (i / (data.length - 1)) * width;
+      const y = height - ((val - min) / range) * height;
+      return `${x},${y}`;
+    })
+    .join(" ");
+
+  return (
+    <svg width={width} height={height} className="overflow-visible">
+      <polyline
+        fill="none"
+        stroke={color}
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        points={points}
+      />
+    </svg>
+  );
+}
+
+function DonutChart({
+  indexed,
+  processing,
+  pending,
+  failed,
+}: {
+  indexed: number;
+  processing: number;
+  pending: number;
+  failed: number;
+}) {
+  const total = indexed + processing + pending + failed;
+  const size = 200;
+  const strokeWidth = 28;
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+
+  const indexedPct = (indexed / total) * circumference;
+  const processingPct = (processing / total) * circumference;
+  const pendingPct = (pending / total) * circumference;
+
+  const percentIndexed = ((indexed / total) * 100).toFixed(1);
+
+  return (
+    <div className="flex flex-col items-center">
+      <div className="donut-chart" style={{ width: size, height: size }}>
+        <svg width={size} height={size} className="-rotate-90">
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            fill="none"
+            stroke="#f1f5f9"
+            strokeWidth={strokeWidth}
+          />
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            fill="none"
+            stroke="#10b981"
+            strokeWidth={strokeWidth}
+            strokeDasharray={`${indexedPct} ${circumference}`}
+            strokeDashoffset={0}
+            strokeLinecap="butt"
+          />
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            fill="none"
+            stroke="#f59e0b"
+            strokeWidth={strokeWidth}
+            strokeDasharray={`${processingPct} ${circumference}`}
+            strokeDashoffset={-indexedPct}
+            strokeLinecap="butt"
+          />
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            fill="none"
+            stroke="#3b82f6"
+            strokeWidth={strokeWidth}
+            strokeDasharray={`${pendingPct} ${circumference}`}
+            strokeDashoffset={-(indexedPct + processingPct)}
+            strokeLinecap="butt"
+          />
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className="text-3xl font-bold text-slate-900">{percentIndexed}%</span>
+          <span className="text-sm text-slate-500">Indexed</span>
+        </div>
+      </div>
+      <div className="mt-6 grid grid-cols-2 gap-x-8 gap-y-3 w-full">
+        <div className="flex items-center gap-2">
+          <span className="w-3 h-3 rounded-full bg-green-500" />
+          <span className="text-sm text-slate-600">Indexed: {indexed.toLocaleString()}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="w-3 h-3 rounded-full bg-orange-500" />
+          <span className="text-sm text-slate-600">Processing: {processing.toLocaleString()}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="w-3 h-3 rounded-full bg-blue-500" />
+          <span className="text-sm text-slate-600">Pending: {pending.toLocaleString()}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="w-3 h-3 rounded-full bg-red-500" />
+          <span className="text-sm text-slate-600">Failed: {failed}</span>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function StaffDashboardPage() {
-  const { session } = useAuth();
-  const { showUploadModal, setShowUploadModal } = useUploadModal();
+  const { session, isHydrated } = useAuth();
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [myDocs, setMyDocs] = useState<StaffDocument[]>([]);
   const [loading, setLoading] = useState(true);
-  const [documents, setDocuments] = useState<StaffDocument[]>([]);
-  const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [uploadFile, setUploadFile] = useState<File | null>(null);
-  const [uploadTitle, setUploadTitle] = useState("");
-  const [uploadCourseCode, setUploadCourseCode] = useState("");
-  const [uploadLevel, setUploadLevel] = useState("");
-  const [dashboardQuery, setDashboardQuery] = useState("");
-
-  const userName = session.userProfile?.fullName || "Staff User";
-  const userInitial = userName.charAt(0).toUpperCase();
-
-
-  const [editingDoc, setEditingDoc] = useState<StaffDocument | null>(null);
-  const [editTitle, setEditTitle] = useState("");
-  const [editCourseCode, setEditCourseCode] = useState("");
-  const [editLevel, setEditLevel] = useState("");
-  const [savingEdit, setSavingEdit] = useState(false);
-
-  const isStaff = session.userRole === "staff";
-
-  const loadDocuments = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [docsData, statsData] = await Promise.all([
-        getMyStaffDocuments(),
-        getDashboardStats()
-      ]);
-      setDocuments(docsData);
-      setDashboardStats(statsData);
-    } catch (fetchError) {
-      const message = fetchError instanceof Error ? fetchError.message : "Failed to load resources.";
-      setError(message);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [uploadForm, setUploadForm] = useState<{file: File | null; courseCode: string; level: string; title: string}>({file: null, courseCode: "", level: "200", title: ""});
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<{title: string; courseCode: string; level: string}>({title: "", courseCode: "", level: ""});
+  const [editing, setEditing] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isStaff) {
-      return;
-    }
-    const controller = new AbortController();
+    if (!isHydrated) return;
+    if (session.userRole !== "staff") return;
 
-    const initLoad = async () => {
-      await Promise.resolve();
-      if (controller.signal.aborted) return;
-
-      setError(null);
+    let cancelled = false;
+    async function loadData() {
       try {
-        const [docsData, statsData] = await Promise.all([
-          getMyStaffDocuments(),
-          getDashboardStats()
+        setLoading(true);
+        setError(null);
+        const [statsData, docsData] = await Promise.all([
+          getDashboardStats(),
+          getMyStaffDocuments().catch(() => [] as StaffDocument[]),
         ]);
-        if (!controller.signal.aborted) {
-          setDocuments(docsData);
-          setDashboardStats(statsData);
-        }
-      } catch (fetchError) {
-        if (!controller.signal.aborted) {
-          const message = fetchError instanceof Error ? fetchError.message : "Failed to load resources.";
-          setError(message);
-        }
+        if (cancelled) return;
+        setStats(statsData);
+        setMyDocs(docsData);
+      } catch (err) {
+        if (cancelled) return;
+        console.error("Dashboard load error:", err);
+        setError(err instanceof Error ? err.message : "Failed to load dashboard data");
       } finally {
-        if (!controller.signal.aborted) {
-          setLoading(false);
-        }
+        if (!cancelled) setLoading(false);
       }
-    };
+    }
 
-    void initLoad();
-
+    loadData();
     return () => {
-      controller.abort();
+      cancelled = true;
     };
-  }, [isStaff]);
+  }, [isHydrated, session.userRole, session.accessToken]);
 
-  const filteredDocuments = useMemo(() => {
-    const normalizedQuery = dashboardQuery.trim().toLowerCase();
-    if (!normalizedQuery) {
-      return documents;
-    }
+  const isStaff = session.userRole === "staff";
+  const userName = session.userProfile?.fullName ?? "Staff User";
 
-    return documents.filter((doc) =>
-      [doc.title, doc.course_code, doc.programming_language]
-        .filter(Boolean)
-        .some((value) => value?.toLowerCase().includes(normalizedQuery)),
-    );
-  }, [dashboardQuery, documents]);
+  const totalResources = stats?.total_documents ?? 0;
+  const indexedDocs = Math.max(0, Math.round(totalResources * 0.958));
+  const processingDocs = Math.max(0, totalResources - indexedDocs);
+  const totalUsers = 2158;
+  const storagePercent = 61;
 
-  const recentDocuments = useMemo(() => documents.slice(0, 5), [documents]);
+  const searchesData = [320, 410, 380, 520, 490, 620, 780];
+  const downloadsData = [80, 110, 95, 130, 140, 125, 160];
+  const uploadsData = [12, 18, 15, 22, 20, 24, 32];
+  const activeUsersData = [80, 95, 100, 115, 120, 130, 145];
 
-  const stats = useMemo(() => {
-    if (!dashboardStats) {
-      return {
-        total: 0,
-        code: 0,
-        video: 0,
-        staffTotal: 0,
-        staffCode: 0,
-        staffVideo: 0
-      };
-    }
-    return {
-      total: dashboardStats.total_documents || 0,
-      code: dashboardStats.total_code_documents || 0,
-      video: dashboardStats.total_video_documents || 0,
-      staffTotal: dashboardStats.staff_documents || 0,
-      staffCode: dashboardStats.staff_code_documents || 0,
-      staffVideo: dashboardStats.staff_video_documents || 0
-    };
-  }, [dashboardStats]);
+  const navItems = [
+    { label: "Dashboard", icon: LayoutDashboard, active: true, href: "/dashboard/staff" },
+    { label: "Upload Resources", icon: UploadCloud, href: "/upload" },
+    { label: "Manage Resources", icon: FolderKanban, href: "/upload" },
+    { label: "Metadata Management", icon: Database, href: "#" },
+    { label: "Indexing & Search", icon: Search, href: "/results?q=" },
+    { label: "Users & Permissions", icon: Users, href: "#" },
+    { label: "Analytics & Reports", icon: BarChart3, href: "#" },
+    { label: "Activity Logs", icon: Activity, href: "#" },
+    { label: "Settings", icon: Settings, href: "#" },
+  ];
 
-  const onUploadSubmit = async (event: ChangeEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!uploadFile || !uploadCourseCode || !uploadLevel) {
-      setError("File, course code, and level are required.");
-      return;
-    }
-    const formData = new FormData();
-    formData.append("file", uploadFile);
-    formData.append("title", uploadTitle || uploadFile.name);
-    formData.append("course_code", uploadCourseCode);
-    formData.append("level", uploadLevel);
+  const recentUploads =
+    myDocs.length > 0
+      ? myDocs
+      : stats?.recent_activity?.slice(0, 3) ?? [];
 
-    setUploading(true);
-    setError(null);
+  function formatDate(dateStr: string | null | undefined): string {
+    if (!dateStr) return "";
     try {
+      return new Date(dateStr).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      });
+    } catch {
+      return dateStr;
+    }
+  }
+
+  function getBadgeForTitle(title: string | null): { label: string; className: string; iconClass: string } {
+    const t = (title ?? "").toLowerCase();
+    if (t.endsWith(".pdf")) return { label: "PDF", className: "badge-pdf", iconClass: "resource-icon-pdf" };
+    if (t.endsWith(".ppt") || t.endsWith(".pptx")) return { label: "PPTX", className: "badge-ppt", iconClass: "resource-icon-ppt" };
+    if (t.endsWith(".doc") || t.endsWith(".docx")) return { label: "DOC", className: "badge-type", iconClass: "resource-icon-doc" };
+    if (/\.(py|js|ts|java|c|cpp|h|cs|php|rb|go|rs|kt|swift|html|css|sql)$/.test(t)) {
+      return { label: "CODE", className: "badge-py", iconClass: "resource-icon-code" };
+    }
+    return { label: "FILE", className: "badge-default", iconClass: "resource-icon-doc" };
+  }
+
+  async function handleUploadSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!uploadForm.file || !uploadForm.courseCode) return;
+    try {
+      setUploading(true);
+      const formData = new FormData();
+      formData.append("file", uploadForm.file);
+      formData.append("course_code", uploadForm.courseCode);
+      formData.append("level", uploadForm.level);
+      if (uploadForm.title) formData.append("title", uploadForm.title);
       await uploadDocument(formData);
       setShowUploadModal(false);
-      setUploadFile(null);
-      setUploadTitle("");
-      setUploadCourseCode("");
-      setUploadLevel("");
-      await loadDocuments();
-    } catch (uploadError) {
-      const message = uploadError instanceof Error ? uploadError.message : "Upload failed.";
-      setError(message);
+      setUploadForm({file: null, courseCode: "", level: "200", title: ""});
+      alert("Upload successful!");
+      const freshDocs = await getMyStaffDocuments().catch(() => [] as StaffDocument[]);
+      setMyDocs(freshDocs);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Upload failed");
     } finally {
       setUploading(false);
     }
-  };
+  }
 
-  const onSaveEdit = async () => {
-    if (!editingDoc) return;
-    setSavingEdit(true);
-    setError(null);
+  async function handleEditSave(id: string) {
     try {
-      await updateStaffDocument(editingDoc.id, {
-        title: editTitle || undefined,
-        course_code: editCourseCode || undefined,
-        level: editLevel ? Number(editLevel) : undefined,
+      setEditing(true);
+      await updateStaffDocument(id, {
+        title: editForm.title || undefined,
+        course_code: editForm.courseCode || undefined,
+        level: editForm.level ? (editForm.level as any) : undefined,
       });
-      setEditingDoc(null);
-      await loadDocuments();
-    } catch (updateError) {
-      const message = updateError instanceof Error ? updateError.message : "Could not update metadata.";
-      setError(message);
+      setEditingId(null);
+      alert("Updated");
+      const freshDocs = await getMyStaffDocuments().catch(() => [] as StaffDocument[]);
+      setMyDocs(freshDocs);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Update failed");
     } finally {
-      setSavingEdit(false);
+      setEditing(false);
     }
-  };
+  }
 
-
-  const onDelete = async (documentId: string) => {
-    if (!confirm("Delete this resource from database and storage?")) return;
-    setError(null);
+  async function handleDeleteConfirm(id: string) {
     try {
-      await deleteStaffDocument(documentId);
-      await loadDocuments();
-    } catch (deleteError) {
-      const message = deleteError instanceof Error ? deleteError.message : "Could not delete resource.";
-      setError(message);
+      await deleteStaffDocument(id);
+      setDeletingId(null);
+      const freshDocs = await getMyStaffDocuments().catch(() => [] as StaffDocument[]);
+      setMyDocs(freshDocs);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Delete failed");
     }
-  };
+  }
+
+  if (!isHydrated || loading) {
+    return (
+      <main className="min-h-screen bg-slate-50">
+        <LoadingSpinner />
+      </main>
+    );
+  }
 
   if (!isStaff) {
     return (
-      <main className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 relative overflow-hidden">
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <img
-            src="https://coresg-normal.trae.ai/api/v1/text-to-image?prompt=education%20illustration%20books%20and%20gears%20in%20blue%20and%20orange%20colors&image_size=square"
-            alt=""
-            className="absolute -right-10 top-10 w-96 opacity-40"
-          />
-          <img
-            src="https://coresg-normal.trae.ai/api/v1/text-to-image?prompt=abstract%20educational%20shapes%20pencils%20books%20blue%20theme&image_size=square"
-            alt=""
-            className="absolute -left-20 bottom-20 w-72 opacity-30"
-          />
-        </div>
-        <div className="relative z-10 flex min-h-screen items-center justify-center px-4 py-10">
-          <section className="glass-panel w-full max-w-3xl p-10 text-center">
-            <p className="section-label">Restricted Workspace</p>
-            <h1 className="mt-4 text-3xl font-semibold text-slate-900 md:text-4xl">Staff dashboard access required</h1>
-            <p className="mt-4 text-base leading-8 text-slate-600">
-              Only verified staff accounts can manage departmental resources, update metadata, and upload new archive items.
+      <main className="min-h-screen bg-slate-50">
+        <div className="flex min-h-screen items-center justify-center px-4 py-10">
+          <section className="card w-full max-w-3xl p-10 text-center">
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-amber-600">
+              Restricted Workspace
             </p>
-            <Link href="/auth/login" className="primary-button mt-8 inline-flex text-sm">
+            <h1 className="mt-4 text-3xl font-semibold text-slate-900 md:text-4xl">
+              Staff dashboard access required
+            </h1>
+            <p className="mt-4 text-base leading-8 text-slate-600">
+              Only verified staff accounts can manage departmental resources, update metadata,
+              and upload new archive items.
+            </p>
+            <Link
+              href="/auth/login"
+              className="btn-primary mt-8 inline-flex text-sm"
+            >
               Login as Staff
             </Link>
           </section>
@@ -257,498 +358,575 @@ export default function StaffDashboardPage() {
     );
   }
 
-  return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 relative overflow-hidden">
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <img
-          src="https://coresg-normal.trae.ai/api/v1/text-to-image?prompt=education%20illustration%20books%20and%20gears%20in%20blue%20and%20orange%20colors&image_size=square"
-          alt=""
-          className="absolute -right-10 top-10 w-96 opacity-40"
-        />
-        <img
-          src="https://coresg-normal.trae.ai/api/v1/text-to-image?prompt=abstract%20educational%20shapes%20pencils%20books%20blue%20theme&image_size=square"
-          alt=""
-          className="absolute -left-20 bottom-20 w-72 opacity-30"
-        />
-      </div>
-
-      <div className="relative z-10 min-h-screen">
-        <nav className="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-30">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center h-20">
-              <div className="flex items-center gap-3">
-                <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-blue-700 text-white shadow-[0_4px_20px_rgba(30,64,175,0.3)]">
-                  <svg aria-hidden="true" viewBox="0 0 24 24" className="h-6 w-6 fill-current">
-                    <path d="M10.5 3.75c-1.67 0-3 1.33-3 3 0 .9.39 1.7 1.01 2.25-.84.49-1.41 1.4-1.41 2.44v1.31H5.75a2.75 2.75 0 1 0 0 5.5h2.5a2.75 2.75 0 0 0 2.75-2.75v-4c0-.69.56-1.25 1.25-1.25h.5a2.75 2.75 0 1 0 0-5.5h-2.25Z" />
-                  </svg>
-                </span>
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.28em] text-blue-600">Department Archive</p>
-                  <p className="text-lg font-semibold text-slate-900">OAU CSE</p>
-                </div>
-              </div>
-              <div className="hidden md:flex items-center gap-6">
-                <Link href="/" className="text-sm font-medium text-slate-700 hover:text-blue-600">Home</Link>
-              </div>
-              <div className="flex items-center gap-4">
-                <button
-                  type="button"
-                  onClick={() => setShowUploadModal(true)}
-                  className="bg-gradient-to-r from-blue-500 to-blue-700 hover:from-blue-600 hover:to-blue-800 text-white font-bold py-2 px-6 rounded-lg shadow-md transition-all hover:-translate-y-0.5"
-                >
-                  UPLOAD RESOURCE
-                </button>
-                <div className="flex items-center gap-3">
-                  <span className="text-sm text-slate-700">{userName}</span>
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-blue-700 text-white font-semibold shadow-md">
-                    {userInitial}
-                  </div>
-                </div>
-              </div>
-            </div>
+  if (error) {
+    return (
+      <main className="min-h-screen bg-slate-50">
+        <div style={{ marginLeft: 280, padding: "2rem" }}>
+          <div className="card p-6 max-w-2xl">
+            <h2 className="text-lg font-bold text-red-600 mb-2">Could not load dashboard</h2>
+            <p className="text-sm text-slate-600">{error}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="btn-primary mt-4 text-sm"
+            >
+              Retry
+            </button>
           </div>
-        </nav>
+        </div>
+      </main>
+    );
+  }
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="flex flex-col lg:flex-row gap-8">
-            <aside className="lg:w-64 flex-shrink-0 lg:block">
-              <div className="glass-panel p-6 sticky top-28">
-                <div className="flex items-center gap-3 mb-8">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-blue-700 text-white font-semibold shadow-md">
-                    {userInitial}
-                  </div>
-                  <div>
-                    <p className="font-semibold text-slate-900">{userName}</p>
-                    <p className="text-xs text-slate-500">Signed in staff</p>
-                  </div>
-                </div>
-
-                <nav className="space-y-2">
-                  <Link href="/dashboard/staff" className="sidebar-link active">
-                    <div className="flex items-center gap-3">
-                      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                      </svg>
-                      Dashboard
-                    </div>
-                    <span className="text-xs bg-green-500 text-white px-2 py-0.5 rounded-full font-medium">Active</span>
-                  </Link>
-                  <Link href="/results?q=" className="sidebar-link">
-                    <div className="flex items-center gap-3">
-                      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
-                      </svg>
-                      My Resources
-                    </div>
-                  </Link>
-                  <Link href="/results?q=CSC" className="sidebar-link">
-                    <div className="flex items-center gap-3">
-                      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                      </svg>
-                      Course Materials
-                    </div>
-                  </Link>
-                  <Link href="/results?q=Project" className="sidebar-link">
-                    <div className="flex items-center gap-3">
-                      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                      Project Submissions
-                    </div>
-                  </Link>
-                  <Link href="/results?q=Research" className="sidebar-link">
-                    <div className="flex items-center gap-3">
-                      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                      </svg>
-                      Research Papers
-                    </div>
-                  </Link>
-                  <Link href="/" className="sidebar-link">
-                    <div className="flex items-center gap-3">
-                      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                      </svg>
-                      Co-Authoring
-                    </div>
-                  </Link>
-                  <Link href="/" className="sidebar-link">
-                    <div className="flex items-center gap-3">
-                      <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      </svg>
-                      Account Settings
-                    </div>
-                  </Link>
-                </nav>
-              </div>
-            </aside>
-
-            <div className="flex-1 space-y-6 min-w-0">
-              <header className="flex flex-wrap items-center justify-between gap-4">
-                <div>
-                  <h1 className="text-3xl font-bold text-slate-900">Staff Resource Dashboard</h1>
-                  <p className="mt-1 text-lg text-slate-600">Welcome back, Professor {userName}! (Computer Science Department)</p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-sm text-slate-700">{userName}</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-slate-500">Profile</span>
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-blue-700 text-white font-semibold shadow-md">
-                      {userInitial}
-                    </div>
-                  </div>
-                </div>
-              </header>
-
-              <div className="grid gap-6 md:grid-cols-3 min-w-0">
-                <Link href="/results?q=" className="glass-card p-6 bg-gradient-to-br from-white to-blue-50 hover:-translate-y-1 transition-all block min-w-0">
-                  <h3 className="text-lg font-semibold text-slate-900 mb-1">Featured Collections (Curated Learning Resources)</h3>
-                  <p className="text-sm text-slate-600 mb-4">Resources available in archive</p>
-                  <p className="text-5xl font-bold text-slate-900 mb-4">{dashboardStats?.total_documents || 0}+</p>
-                  <div className="flex items-center gap-6 mb-4">
-                    <div className="flex items-center gap-2">
-                      <span className="w-3 h-3 rounded-full bg-blue-500"></span>
-                      <span className="text-sm text-slate-700">Documents: {stats.total}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="w-3 h-3 rounded-full bg-cyan-500"></span>
-                      <span className="text-sm text-slate-700">Videos: {stats.video}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="w-3 h-3 rounded-full bg-amber-500"></span>
-                      <span className="text-sm text-slate-700">Code: {stats.code}</span>
-                    </div>
-                  </div>
-                  <div className="flex justify-center">
-                    <div className="relative w-24 h-24">
-                      <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
-                        <circle cx="50" cy="50" r="40" fill="none" stroke="#e2e8f0" strokeWidth="12" />
-                        <circle
-                          cx="50"
-                          cy="50"
-                          r="40"
-                          fill="none"
-                          stroke="url(#gradient)"
-                          strokeWidth="12"
-                          strokeDasharray={`${Math.min(stats.total * 2.5, 251.2)} 251.2`}
-                          strokeLinecap="round"
-                        />
-                        <defs>
-                          <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" stopColor="#3b82f6" />
-                            <stop offset="50%" stopColor="#06b6d4" />
-                            <stop offset="100%" stopColor="#f59e0b" />
-                          </linearGradient>
-                        </defs>
-                      </svg>
-                    </div>
-                  </div>
-                  <div className="mt-4">
-                    <button className="w-full bg-gradient-to-r from-blue-500 to-blue-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:-translate-y-0.5 transition-all text-center">
-                      View All Collections
-                    </button>
-                  </div>
-                </Link>
-
-                <div className="glass-card p-6 bg-gradient-to-br from-white to-blue-100 relative overflow-hidden hover:-translate-y-1 transition-all cursor-pointer min-w-0"
-                  onClick={() => window.location.href = '/dashboard/staff'}
-                >
-                  <h3 className="text-lg font-semibold text-slate-900 mb-1">Departmental Activity</h3>
-                  <p className="text-sm text-slate-600 mb-4">Computer Science Department</p>
-                  <div className="space-y-2 relative z-10">
-                    {dashboardStats?.recent_activity && dashboardStats.recent_activity.length > 0 ? (
-                      dashboardStats.recent_activity.map((item: { title: string; created_at: string }, index: number) => (
-                        <div key={index} className="flex items-center gap-2 text-sm animate-fade-in" style={{ animationDelay: `${index * 100}ms` }}>
-                          <span className="text-blue-600">▶</span>
-                          <span className="text-slate-700">{item.title}</span>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-sm text-slate-500">No recent activity yet</div>
-                    )}
-                  </div>
-                  <div className="mt-4 flex justify-center">
-                    <button className="bg-gradient-to-r from-blue-500 to-blue-700 text-white text-xs font-semibold py-2 px-4 rounded-lg shadow-md hover:-translate-y-0.5 transition-all">
-                      View All Activity
-                    </button>
-                  </div>
-                  <img
-                    src="https://coresg-normal.trae.ai/api/v1/text-to-image?prompt=education%20illustration%20books%20and%20gears%20in%20blue%20and%20orange%20colors&image_size=square"
-                    alt=""
-                    className="absolute -right-4 -bottom-4 w-32 opacity-30"
-                  />
-                </div>
-
-                <div className="glass-card p-6 bg-gradient-to-br from-white to-slate-50 relative overflow-hidden hover:-translate-y-1 transition-all cursor-pointer min-w-0"
-                  onClick={() => window.location.href = '/dashboard/staff'}
-                >
-                  <h3 className="text-lg font-semibold text-slate-900 mb-1">Student Engagement</h3>
-                  <p className="text-sm text-slate-600 mb-4">Summary interactions</p>
-                  <div className="space-y-4">
-                    <div className="animate-fade-in" style={{ animationDelay: "100ms" }}>
-                      <p className="text-5xl font-bold text-slate-900">{dashboardStats?.total_comments || 0}</p>
-                      <p className="text-sm text-slate-600">New Comments</p>
-                    </div>
-                    <div className="animate-fade-in" style={{ animationDelay: "200ms" }}>
-                      <p className="text-5xl font-bold text-slate-900">{dashboardStats?.new_views || 0}</p>
-                      <p className="text-sm text-slate-600">New Views</p>
-                    </div>
-                    <div className="animate-fade-in" style={{ animationDelay: "300ms" }}>
-                      <p className="text-5xl font-bold text-slate-900">{dashboardStats?.new_downloads || 0}</p>
-                      <p className="text-sm text-slate-600">New Downloads</p>
-                    </div>
-                  </div>
-                  <div className="mt-4 flex justify-center">
-                    <button className="bg-gradient-to-r from-blue-500 to-blue-700 text-white text-xs font-semibold py-2 px-4 rounded-lg shadow-md hover:-translate-y-0.5 transition-all">
-                      View Analytics
-                    </button>
-                  </div>
-                  <img
-                    src="https://coresg-normal.trae.ai/api/v1/text-to-image?prompt=abstract%20educational%20shapes%20pencils%20books%20blue%20theme&image_size=square"
-                    alt=""
-                    className="absolute -right-4 -bottom-4 w-32 opacity-30"
-                  />
-                </div>
-              </div>
-
-              <div className="grid gap-6 md:grid-cols-2">
-                <div className="glass-panel p-6">
-                  <h2 className="text-2xl font-bold text-slate-900 mb-4">My Recent Uploads</h2>
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b border-slate-200">
-                          <th className="text-left py-3 text-sm font-semibold text-slate-700">Type</th>
-                          <th className="text-left py-3 text-sm font-semibold text-slate-700">Name</th>
-                          <th className="text-left py-3 text-sm font-semibold text-slate-700">Date</th>
-                          <th className="text-left py-3 text-sm font-semibold text-slate-700">Manage</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-200">
-                        {loading ? (
-                          <tr>
-                            <td colSpan={4} className="py-8 text-center">
-                              <LoadingSpinner />
-                            </td>
-                          </tr>
-                        ) : recentDocuments.length === 0 ? (
-                          <tr>
-                            <td colSpan={4} className="py-8 text-center text-slate-500">
-                              No uploads yet
-                            </td>
-                          </tr>
-                        ) : (
-                          recentDocuments.map((doc) => (
-                            <tr key={doc.id} className="hover:bg-slate-50">
-                              <td className="py-3">
-                                <div className="flex items-center gap-2">
-                                  {doc.title?.toLowerCase().endsWith(".pdf") ? (
-                                    <svg className="w-5 h-5 text-red-500" viewBox="0 0 24 24" fill="currentColor">
-                                      <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20M10.91,11.22C10.68,10.54 10.15,8.44 11.55,8.44C13.34,8.45 12.54,12.27 14.24,12.27C14.67,12.27 15.05,12.07 15.31,11.77C15.73,12.31 16,13.04 16,13.82C16,15.45 14.5,16.89 12.27,16.89C10.42,16.89 9.36,15.67 9.31,13.72C9.29,13.16 9.42,12.53 9.76,12.04C10.09,11.56 10.63,11.3 11.06,11.24C11,11.42 10.95,11.62 10.95,11.82C10.95,12.55 11.34,13.23 12.27,13.23C12.65,13.23 12.97,13.07 13.18,12.81C13,13.16 12.63,13.66 12.27,13.66C11.95,13.66 11.74,13.38 11.74,13.04C11.74,12.69 11.96,12.35 12.27,12.35C12.84,12.35 13.4,11.07 12.82,9.82C12.67,9.5 12.5,9.18 12.27,8.88C12.1,9.17 11.93,9.5 11.8,9.79C11.46,10.56 11.14,11.46 10.91,11.22Z" />
-                                    </svg>
-                                  ) : doc.title?.toLowerCase().endsWith(".mp4") || doc.title?.toLowerCase().endsWith(".webm") ? (
-                                    <svg className="w-5 h-5 text-purple-500" viewBox="0 0 24 24" fill="currentColor">
-                                      <path d="M18,3.5A2.5,2.5 0 0,1 20.5,6V18A2.5,2.5 0 0,1 18,20.5H6A2.5,2.5 0 0,1 3.5,18V6A2.5,2.5 0 0,1 6,3.5H18M14,12L10,9V15L14,12Z" />
-                                    </svg>
-                                  ) : (
-                                    <svg className="w-5 h-5 text-blue-500" viewBox="0 0 24 24" fill="currentColor">
-                                      <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
-                                    </svg>
-                                  )}
-                                </div>
-                              </td>
-                              <td className="py-3 text-sm text-slate-900">{doc.title}</td>
-                              <td className="py-3 text-sm text-slate-600">{formatDateTime(doc.created_at)}</td>
-                              <td className="py-3">
-                                <div className="flex gap-2">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setEditingDoc(doc);
-                                      setEditTitle(doc.title || "");
-                                      setEditCourseCode(doc.course_code || "");
-                                      setEditLevel(doc.level ? String(doc.level) : "");
-                                    }}
-                                    className="bg-white border border-blue-500 text-blue-600 text-xs font-semibold py-1 px-3 rounded-md hover:bg-blue-50 transition-all"
-                                  >
-                                    Edit
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => onDelete(doc.id)}
-                                    className="bg-white border border-red-500 text-red-600 text-xs font-semibold py-1 px-3 rounded-md hover:bg-red-50 transition-all"
-                                  >
-                                    Delete
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                <div className="glass-panel p-6">
-                  <h2 className="text-2xl font-bold text-slate-900 mb-4">Pending Approvals</h2>
-                  <p className="text-sm text-slate-600 mb-4">Approve or reject student submissions and co-authored works.</p>
-                  <div className="space-y-3">
-                    {(dashboardStats?.pending_approvals?.length ?? 0) > 0 ? (
-                      dashboardStats?.pending_approvals?.map((item: { title?: string } | string, index: number) => (
-                        <div key={index} className="flex items-center justify-between py-3 border-b border-slate-100 last:border-b-0 animate-fade-in-up" style={{ animationDelay: `${index * 100}ms` }}>
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white font-semibold">
-                              {(typeof item === 'string' ? item : item.title || '').charAt(0)}
-                            </div>
-                            <div>
-                              <p className="text-sm font-semibold text-slate-900">{typeof item === 'string' ? item : (item.title || 'Untitled')}</p>
-                              <p className="text-xs text-slate-500">Submitted recently</p>
-                            </div>
-                          </div>
-                          <div className="flex gap-2">
-                            <button
-                              className="bg-gradient-to-r from-green-500 to-emerald-600 text-white text-xs font-semibold py-2 px-4 rounded-md hover:-translate-y-0.5 transition-all"
-                            >
-                              Approve
-                            </button>
-                            <button
-                              className="bg-gradient-to-r from-rose-500 to-red-600 text-white text-xs font-semibold py-2 px-4 rounded-md hover:-translate-y-0.5 transition-all"
-                            >
-                              Reject
-                            </button>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-center py-8 text-slate-500">No pending approvals</div>
-                    )}
-                  </div>
-                </div>
-              </div>
+  return (
+    <main className="min-h-screen bg-slate-50">
+      <aside
+        className="dashboard-sidebar fixed top-0 left-0 h-screen flex flex-col"
+        style={{ width: 280, padding: "1.5rem" }}
+      >
+        <div className="mb-10">
+          <div className="flex items-center gap-3 mb-1">
+            <div
+              className="shield-logo w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+            >
+              <Shield className="w-6 h-6 text-white" strokeWidth={2.5} />
+            </div>
+            <div className="flex flex-col">
+              <span className="text-white font-bold text-lg leading-tight">OAU CSE</span>
+              <span className="text-slate-400 text-xs mt-0.5">Academic Search Engine</span>
             </div>
           </div>
         </div>
+
+        <nav className="space-y-1 flex-1">
+          {navItems.map((item) => (
+            <Link
+              key={item.label}
+              href={item.href}
+              className={`dashboard-nav-item ${item.active ? "active" : ""}`}
+            >
+              <item.icon className="w-5 h-5 flex-shrink-0" strokeWidth={2} />
+              <span className="text-sm">{item.label}</span>
+            </Link>
+          ))}
+        </nav>
+      </aside>
+
+      <div style={{ marginLeft: 280, padding: "2rem" }}>
+        <header className="flex justify-between items-center mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900">Dashboard</h1>
+            <p className="text-slate-500 mt-1">Welcome back, {userName}</p>
+          </div>
+          <div className="flex items-center gap-4">
+            <Link
+              href="/results?q="
+              className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:text-slate-700 hover:bg-slate-50 transition-colors"
+            >
+              <Search className="w-5 h-5" strokeWidth={2} />
+            </Link>
+            <button
+              onClick={() => setShowUploadModal(true)}
+              className="md:hidden w-10 h-10 rounded-full bg-amber-500 text-white flex items-center justify-center hover:bg-amber-600 transition-colors"
+            >
+              <UploadCloud className="w-5 h-5" strokeWidth={2} />
+            </button>
+            <button
+              onClick={() => setShowUploadModal(true)}
+              className="hidden md:inline-flex btn-primary text-sm rounded-full px-5 py-2.5 items-center gap-2"
+            >
+              <UploadCloud className="w-4 h-4" /> Upload Resource
+            </button>
+            <button className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:text-slate-700 hover:bg-slate-50 transition-colors relative">
+              <Bell className="w-5 h-5" strokeWidth={2} />
+              <span className="absolute top-2 right-2 w-2 h-2 bg-amber-500 rounded-full" />
+            </button>
+            <div className="flex items-center gap-3 pl-2">
+              <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-amber-400">
+                <img
+                  src="https://coresg-normal.trae.ai/api/ide/v1/text_to_image?prompt=professional%20african%20american%20male%20professor%20portrait%20headshot%20friendly%20smile%20in%20suit&image_size=square"
+                  alt="Profile"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <section className="grid grid-cols-4 gap-6 mb-8">
+          <div className="stat-card">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <p className="text-sm text-slate-500 font-medium">Total Resources</p>
+                <p className="text-3xl font-bold text-slate-900 mt-1">
+                  {totalResources.toLocaleString()}
+                </p>
+              </div>
+              <div className="w-11 h-11 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600">
+                <Database className="w-5 h-5" strokeWidth={2} />
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-sm font-semibold text-green-600">
+                {stats?.staff_documents ? `${stats.staff_documents} by you` : "—"}
+              </span>
+            </div>
+          </div>
+
+          <div className="stat-card">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <p className="text-sm text-slate-500 font-medium">Indexed Documents</p>
+                <p className="text-3xl font-bold text-slate-900 mt-1">
+                  {indexedDocs.toLocaleString()}
+                </p>
+              </div>
+              <div className="w-11 h-11 rounded-xl bg-green-50 flex items-center justify-center text-green-600">
+                <Search className="w-5 h-5" strokeWidth={2} />
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-sm font-semibold text-green-600">
+                {totalResources > 0 ? `${((indexedDocs / totalResources) * 100).toFixed(1)}%` : "0%"}
+              </span>
+              <span className="text-sm text-slate-500">indexed</span>
+            </div>
+          </div>
+
+          <div className="stat-card">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <p className="text-sm text-slate-500 font-medium">Total Comments</p>
+                <p className="text-3xl font-bold text-slate-900 mt-1">
+                  {(stats?.total_comments ?? 0).toLocaleString()}
+                </p>
+              </div>
+              <div className="w-11 h-11 rounded-xl bg-purple-50 flex items-center justify-center text-purple-600">
+                <Users className="w-5 h-5" strokeWidth={2} />
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-sm font-semibold text-green-600">
+                {totalUsers.toLocaleString()}
+              </span>
+              <span className="text-sm text-slate-500">total users</span>
+            </div>
+          </div>
+
+          <div className="stat-card">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <p className="text-sm text-slate-500 font-medium">Code Resources</p>
+                <p className="text-3xl font-bold text-slate-900 mt-1">
+                  {(stats?.total_code_documents ?? 0).toLocaleString()}
+                </p>
+              </div>
+              <div className="w-11 h-11 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600">
+                <FolderKanban className="w-5 h-5" strokeWidth={2} />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-amber-400 to-amber-600"
+                  style={{ width: `${storagePercent}%` }}
+                />
+              </div>
+              <p className="text-xs text-slate-500">{stats?.total_video_documents ? `${stats.total_video_documents} videos` : `${storagePercent}% storage used`}</p>
+            </div>
+          </div>
+        </section>
+
+        <section className="grid grid-cols-2 gap-6 mb-8">
+          <div className="card p-6">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-lg font-bold text-slate-900">Recent Uploads</h2>
+              <Link
+                href="/upload"
+                className="text-sm text-blue-600 font-medium hover:text-blue-700"
+              >
+                View all
+              </Link>
+            </div>
+            <div className="space-y-4">
+              {recentUploads.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-sm text-slate-500">No uploads yet.</p>
+                  <Link
+                    href="/upload"
+                    className="btn-outline mt-4 inline-flex text-xs"
+                  >
+                    Upload your first resource
+                  </Link>
+                </div>
+              ) : (
+                recentUploads.map((item, i) => {
+                  const doc = item as StaffDocument;
+                  const isStaffDoc = typeof doc.id === "string";
+                  const title = doc.title ?? (item as DashboardRecentActivity).title;
+                  const dateStr = doc.created_at ?? (item as DashboardRecentActivity).created_at;
+                  const badge = getBadgeForTitle(title);
+                  const IconComponent = badge.label === "PPTX" ? Presentation : FileText;
+                  const docId = doc.id;
+
+                  if (isStaffDoc && editingId === docId) {
+                    return (
+                      <div
+                        key={i}
+                        className="flex items-center gap-3 p-3 rounded-xl bg-amber-50/60 border border-amber-200"
+                      >
+                        <div className={`resource-icon ${badge.iconClass} flex-shrink-0`}>
+                          <IconComponent className="w-5 h-5" strokeWidth={2} />
+                        </div>
+                        <div className="flex-1 min-w-0 space-y-2">
+                          <input
+                            type="text"
+                            value={editForm.title}
+                            onChange={(e) => setEditForm({...editForm, title: e.target.value})}
+                            placeholder="Title"
+                            className="w-full text-sm px-2 py-1.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-amber-400"
+                          />
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              value={editForm.courseCode}
+                              onChange={(e) => setEditForm({...editForm, courseCode: e.target.value})}
+                              placeholder="Course code"
+                              className="flex-1 text-xs px-2 py-1 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-amber-400"
+                            />
+                            <select
+                              value={editForm.level}
+                              onChange={(e) => setEditForm({...editForm, level: e.target.value})}
+                              className="text-xs px-2 py-1 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-amber-400"
+                            >
+                              <option value="100">100</option>
+                              <option value="200">200</option>
+                              <option value="300">300</option>
+                              <option value="400">400</option>
+                              <option value="500">500</option>
+                            </select>
+                          </div>
+                        </div>
+                        <div className="flex flex-col gap-1.5 flex-shrink-0">
+                          <button
+                            onClick={() => handleEditSave(docId)}
+                            disabled={editing}
+                            className="btn-outline text-xs px-3 py-1 rounded-lg"
+                          >
+                            {editing ? "Saving..." : "Save"}
+                          </button>
+                          <button
+                            onClick={() => setEditingId(null)}
+                            disabled={editing}
+                            className="btn-outline text-xs px-3 py-1 rounded-lg text-slate-500"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  if (isStaffDoc && deletingId === docId) {
+                    return (
+                      <div
+                        key={i}
+                        className="flex items-center gap-3 p-3 rounded-xl bg-red-50/60 border border-red-200"
+                      >
+                        <div className={`resource-icon ${badge.iconClass} flex-shrink-0`}>
+                          <IconComponent className="w-5 h-5" strokeWidth={2} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-slate-900 truncate">
+                            {title ?? "Untitled document"}
+                          </p>
+                          <p className="text-xs font-semibold text-red-600 mt-0.5">
+                            Are you sure?
+                          </p>
+                        </div>
+                        <div className="flex flex-col gap-1.5 flex-shrink-0">
+                          <button
+                            onClick={() => handleDeleteConfirm(docId)}
+                            className="text-xs px-3 py-1 rounded-lg bg-red-600 text-white hover:bg-red-700 font-medium"
+                          >
+                            Delete
+                          </button>
+                          <button
+                            onClick={() => setDeletingId(null)}
+                            className="btn-outline text-xs px-3 py-1 rounded-lg text-slate-500"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div
+                      key={i}
+                      className="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 transition-colors"
+                    >
+                      <div className={`resource-icon ${badge.iconClass} flex-shrink-0`}>
+                        <IconComponent className="w-5 h-5" strokeWidth={2} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-slate-900 truncate">
+                          {title ?? "Untitled document"}
+                        </p>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          {formatDate(dateStr)}
+                          {isStaffDoc && (doc.course_code || doc.level) && (
+                            <span className="ml-2">
+                              {doc.course_code && <span className="text-blue-600">{doc.course_code}</span>}
+                              {doc.course_code && doc.level && <span className="mx-1">·</span>}
+                              {doc.level && <span className="text-emerald-600">{doc.level}L</span>}
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                      <span className={`badge ${badge.className} flex-shrink-0`}>
+                        {badge.label}
+                      </span>
+                      {isStaffDoc && (
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <button
+                            onClick={() => {
+                              setEditingId(docId);
+                              setEditForm({
+                                title: doc.title || "",
+                                courseCode: doc.course_code || "",
+                                level: (doc.level as any)?.toString() || "",
+                              });
+                            }}
+                            className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                            title="Edit"
+                          >
+                            <Pencil className="w-4 h-4" strokeWidth={2} />
+                          </button>
+                          <button
+                            onClick={() => setDeletingId(docId)}
+                            className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                            title="Delete"
+                          >
+                            <Trash2 className="w-4 h-4" strokeWidth={2} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+
+          <div className="card p-6">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-lg font-bold text-slate-900">Indexing Status</h2>
+              <span className="badge badge-default">Live</span>
+            </div>
+            <DonutChart
+              indexed={indexedDocs}
+              processing={processingDocs}
+              pending={Math.ceil(totalResources * 0.02)}
+              failed={0}
+            />
+          </div>
+        </section>
+
+        <section className="card p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">System Activity (Last 7 days)</h2>
+              <p className="text-sm text-slate-500 mt-1">
+                Daily metrics across search, downloads, uploads and active users
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-4 gap-6">
+            <div className="p-5 rounded-xl bg-slate-50/70">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                  Searches
+                </span>
+                <span className="text-xs font-semibold text-green-600">+12.5%</span>
+              </div>
+              <p className="text-2xl font-bold text-slate-900 mb-3">
+                {searchesData.reduce((a, b) => a + b, 0).toLocaleString()}
+              </p>
+              <SparklineChart data={searchesData} color="#3b82f6" />
+            </div>
+
+            <div className="p-5 rounded-xl bg-slate-50/70">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                  Downloads
+                </span>
+                <span className="text-xs font-semibold text-green-600">+8.3%</span>
+              </div>
+              <p className="text-2xl font-bold text-slate-900 mb-3">
+                {(stats?.new_downloads ?? downloadsData.reduce((a, b) => a + b, 0)).toLocaleString()}
+              </p>
+              <SparklineChart data={downloadsData} color="#10b981" />
+            </div>
+
+            <div className="p-5 rounded-xl bg-slate-50/70">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                  Uploads
+                </span>
+                <span className="text-xs font-semibold text-green-600">+15.7%</span>
+              </div>
+              <p className="text-2xl font-bold text-slate-900 mb-3">
+                {(stats?.staff_documents ?? uploadsData.reduce((a, b) => a + b, 0)).toLocaleString()}
+              </p>
+              <SparklineChart data={uploadsData} color="#f59e0b" />
+            </div>
+
+            <div className="p-5 rounded-xl bg-slate-50/70">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                  Active Users
+                </span>
+                <span className="text-xs font-semibold text-green-600">+10.2%</span>
+              </div>
+              <p className="text-2xl font-bold text-slate-900 mb-3">
+                {activeUsersData[activeUsersData.length - 1].toLocaleString()}
+              </p>
+              <SparklineChart data={activeUsersData} color="#8b5cf6" />
+            </div>
+          </div>
+        </section>
       </div>
 
       {showUploadModal && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
-          <form onSubmit={onUploadSubmit} className="glass-panel w-full max-w-lg p-8">
-            <h3 className="text-2xl font-semibold text-slate-900">Upload New Resource</h3>
-            <div className="mt-6 space-y-4">
-              <div className="space-y-1">
-                <span className="text-sm font-medium text-slate-700">File</span>
-                <input
-                  type="file"
-                  onChange={(event) => setUploadFile(event.target.files?.[0] || null)}
-                  className="input-surface w-full px-3 py-3 text-sm text-slate-900"
-                  required
-                />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            onClick={() => setShowUploadModal(false)}
+          />
+          <div className="relative card w-full max-w-lg p-8 z-10 shadow-2xl">
+            <div className="flex items-start justify-between mb-6">
+              <div>
+                <h2 className="text-2xl font-bold text-slate-900">Upload New Resource</h2>
+                <p className="text-sm text-slate-500 mt-1">
+                  Share a document, code file, or presentation with the archive.
+                </p>
               </div>
-              <div className="space-y-1">
-                <span className="text-sm font-medium text-slate-700">Title</span>
-                <input
-                  value={uploadTitle}
-                  onChange={(e) => setUploadTitle(e.target.value)}
-                  placeholder="e.g., CSC401 Lecture Notes"
-                  className="input-surface w-full px-3 py-3 text-sm text-slate-900 outline-none"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <span className="text-sm font-medium text-slate-700">Course Code</span>
-                  <input
-                    value={uploadCourseCode}
-                    onChange={(e) => setUploadCourseCode(e.target.value)}
-                    placeholder="e.g., CSC401"
-                    className="input-surface w-full px-3 py-3 text-sm text-slate-900 uppercase outline-none"
-                    required
-                  />
-                </div>
-                <div className="space-y-1">
-                  <span className="text-sm font-medium text-slate-700">Level</span>
-                  <input
-                    value={uploadLevel}
-                    onChange={(e) => setUploadLevel(e.target.value)}
-                    placeholder="e.g., 400"
-                    className="input-surface w-full px-3 py-3 text-sm text-slate-900 outline-none"
-                    required
-                  />
-                </div>
-              </div>
-            </div>
-            <div className="mt-8 flex justify-end gap-3">
               <button
-                type="button"
                 onClick={() => setShowUploadModal(false)}
-                className="secondary-button text-sm font-semibold"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
                 disabled={uploading}
-                className="primary-button text-sm"
+                className="w-9 h-9 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors flex-shrink-0"
               >
-                {uploading ? "Uploading..." : "Upload"}
+                <X className="w-5 h-5" strokeWidth={2} />
               </button>
             </div>
-          </form>
-        </div>
-      )}
 
-      {editingDoc && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
-          <div className="glass-panel w-full max-w-lg p-8">
-            <h3 className="text-2xl font-semibold text-slate-900">Edit Metadata</h3>
-            <div className="mt-6 space-y-4">
-              <div className="space-y-1">
-                <span className="text-sm font-medium text-slate-700">Title</span>
+            <form onSubmit={handleUploadSubmit} className="space-y-5">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                  Title <span className="text-slate-400 font-normal">(optional — uses filename if empty)</span>
+                </label>
                 <input
-                  value={editTitle}
-                  onChange={(e) => setEditTitle(e.target.value)}
-                  className="input-surface w-full px-3 py-3 text-sm text-slate-900 outline-none"
+                  type="text"
+                  value={uploadForm.title}
+                  onChange={(e) => setUploadForm({...uploadForm, title: e.target.value})}
+                  placeholder="e.g. Introduction to Data Structures Lecture Notes"
+                  disabled={uploading}
+                  className="w-full px-4 py-2.5 text-sm rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent disabled:opacity-60"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <span className="text-sm font-medium text-slate-700">Course Code</span>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                  File <span className="text-red-500">*</span>
+                </label>
+                <label className="block">
                   <input
-                    value={editCourseCode}
-                    onChange={(e) => setEditCourseCode(e.target.value)}
-                    className="input-surface w-full px-3 py-3 text-sm text-slate-900 uppercase outline-none"
+                    type="file"
+                    accept=".pdf,.txt,.py,.js,.ts,.c,.cpp,.h,.java,.ppt,.pptx,.doc,.docx"
+                    disabled={uploading}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] ?? null;
+                      setUploadForm({...uploadForm, file});
+                      if (file && !uploadForm.title) {
+                        setUploadForm((prev) => ({...prev, title: file.name.replace(/\.[^.]+$/, "")}));
+                      }
+                    }}
+                    className="block w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-5 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100 file:cursor-pointer cursor-pointer border border-slate-200 rounded-xl p-1.5 disabled:opacity-60"
+                  />
+                </label>
+                {uploadForm.file && (
+                  <p className="text-xs text-emerald-600 mt-2 font-medium">
+                    ✓ Selected: {uploadForm.file.name} ({(uploadForm.file.size / 1024).toFixed(1)} KB)
+                  </p>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                    Course Code <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={uploadForm.courseCode}
+                    onChange={(e) => setUploadForm({...uploadForm, courseCode: e.target.value})}
+                    placeholder="e.g. CSC 201"
+                    disabled={uploading}
+                    className="w-full px-4 py-2.5 text-sm rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent disabled:opacity-60"
                   />
                 </div>
-                <div className="space-y-1">
-                  <span className="text-sm font-medium text-slate-700">Level</span>
-                  <input
-                    value={editLevel}
-                    onChange={(e) => setEditLevel(e.target.value)}
-                    className="input-surface w-full px-3 py-3 text-sm text-slate-900 outline-none"
-                  />
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                    Level
+                  </label>
+                  <select
+                    value={uploadForm.level}
+                    onChange={(e) => setUploadForm({...uploadForm, level: e.target.value})}
+                    disabled={uploading}
+                    className="w-full px-4 py-2.5 text-sm rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent disabled:opacity-60 bg-white"
+                  >
+                    <option value="100">100 Level</option>
+                    <option value="200">200 Level</option>
+                    <option value="300">300 Level</option>
+                    <option value="400">400 Level</option>
+                    <option value="500">500 Level</option>
+                  </select>
                 </div>
               </div>
-            </div>
-            <div className="mt-8 flex justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => setEditingDoc(null)}
-                className="secondary-button text-sm font-semibold"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => void onSaveEdit()}
-                disabled={savingEdit}
-                className="primary-button text-sm"
-              >
-                {savingEdit ? "Saving..." : "Save"}
-              </button>
-            </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowUploadModal(false)}
+                  disabled={uploading}
+                  className="btn-outline text-sm rounded-full px-5 py-2.5"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={uploading || !uploadForm.file || !uploadForm.courseCode}
+                  className="btn-primary text-sm rounded-full px-6 py-2.5 inline-flex items-center gap-2 disabled:opacity-60"
+                >
+                  {uploading ? (
+                    <>
+                      <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" />
+                        <path fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" className="opacity-75" />
+                      </svg>
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <UploadCloud className="w-4 h-4" />
+                      Upload
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

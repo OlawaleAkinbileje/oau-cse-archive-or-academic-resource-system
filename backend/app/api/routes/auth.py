@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.api.deps import get_current_user, verify_staff_status, get_current_profile
 from app.core.database import get_db
 from app.schemas.auth import LoginValidationRequest, LoginValidationResponse, SignupRequest, SignupResponse
 from app.schemas.user import UserResponse
@@ -27,6 +28,11 @@ def signup(payload: SignupRequest, db: Session = Depends(get_db)):
         requested_role=payload.requested_role,
     )
     return SignupResponse(user=UserResponse.model_validate(user), message=message)
+
+
+@router.get("/me", response_model=LoginValidationResponse)
+def get_me(user=Depends(get_current_user)):
+    return LoginValidationResponse(user=UserResponse.model_validate(user), is_valid=True)
 
 
 # Temporary admin route to mark user as staff for testing
